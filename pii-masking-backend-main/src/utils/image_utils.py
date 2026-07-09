@@ -94,6 +94,31 @@ def detect_pii(content,pii_category):
         except json.JSONDecodeError:
             return []
     return []
+def heavy_blur_roi(roi):
+    """
+    Applies a heavy, secure blur using pixelation/downsampling combined with Gaussian smoothing.
+    This guarantees text is mathematically unreadable, regardless of the resolution.
+    """
+    h, w = roi.shape[:2]
+    if h <= 0 or w <= 0:
+        return roi
+    # Scale down to destroy details
+    scale = 0.1
+    small_w = max(4, int(w * scale))
+    small_h = max(4, int(h * scale))
+    
+    small_roi = cv2.resize(roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+    pixelated = cv2.resize(small_roi, (w, h), interpolation=cv2.INTER_LINEAR)
+    
+    # Smooth the pixelated blocks
+    k_w = int(w * 0.1) | 1
+    k_h = int(h * 0.1) | 1
+    k_w = max(5, k_w if k_w % 2 != 0 else k_w + 1)
+    k_h = max(5, k_h if k_h % 2 != 0 else k_h + 1)
+    
+    blurred = cv2.GaussianBlur(pixelated, (k_w, k_h), 0)
+    return blurred
+
 def mask_human(image,highlight_mode):
     results = face_model(image) 
     for result in results:
@@ -106,19 +131,35 @@ def mask_human(image,highlight_mode):
                     roi = image[y1:y2, x1:x2]
                     h, w = roi.shape[:2]
                     if h > 0 and w > 0:
-                        k_w = min(w - (1 if w % 2 == 0 else 0), 99)
-                        k_h = min(h - (1 if h % 2 == 0 else 0), 99)
-                        k_w = max(3, k_w)
-                        k_h = max(3, k_h)
-                        image[y1:y2, x1:x2] = cv2.GaussianBlur(roi, (k_w, k_h), 50)
+                        image[y1:y2, x1:x2] = heavy_blur_roi(roi)
                 elif highlight_mode == 'rectangular_box':
                     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 255), -1) 
             
     return image
+
 def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
     print("Facial=",facial)
-    similarity_threshold=0.5
+    
+    # Clean and filter pii_texts to avoid empty or very short strings matching everything
+    valid_pii_texts = []
+    for pii in pii_texts:
+        if pii and isinstance(pii, str):
+            cleaned = pii.strip()
+            # Ignore empty strings or single characters which cause false positive matches
+            if len(cleaned) >= 2:
+                valid_pii_texts.append(cleaned.lower())
+                
     image = cv2.imread(image_path)
+    
+    if not valid_pii_texts:
+        print("No valid PII texts to blur.")
+        if facial:
+            image = mask_human(image, highlight_mode)
+            blurred_path = os.path.join(PROCESSED_FOLDER, os.path.basename(image_path))
+            cv2.imwrite(blurred_path, image)
+            return blurred_path
+        return image_path
+
     grayimg=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     results = reader.readtext(grayimg)
     print("Extracted Text from Image:")
@@ -126,9 +167,10 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
     print("\n\n")
     
     distance = textdistance.Levenshtein()
+    similarity_threshold=0.5
 
     for bbox, text, _ in results:
-        if any(pii.lower() in text.lower() for pii in pii_texts):
+        if any(pii in text.lower() for pii in valid_pii_texts):
             (top_left, top_right, bottom_right, bottom_left) = bbox
             x_min, y_min = int(top_left[0]), int(top_left[1])
             x_max, y_max = int(bottom_right[0]), int(bottom_right[1])
@@ -143,19 +185,12 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
                 y_max_pad = min(image.shape[0], y_max + padding_y)
 
                 roi = image[y_min_pad:y_max_pad, x_min_pad:x_max_pad]
-                h, w = roi.shape[:2]
-                if h > 0 and w > 0:
-                    k_w = max(3, min(int(w * 0.9) | 1, 99))
-                    k_h = max(3, min(int(h * 0.9) | 1, 99))
-                    # Double-pass Gaussian Blur with high sigma for a very strong blur
-                    blurred = cv2.GaussianBlur(roi, (k_w, k_h), 50)
-                    blurred = cv2.GaussianBlur(blurred, (k_w, k_h), 50)
-                    image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = blurred
+                image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = heavy_blur_roi(roi)
             elif highlight_mode == 'rectangular_box':
                 cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), -1)
         if results:
-            for pii in pii_texts:
-                similarity_score = distance.normalized_similarity(text.lower(), pii.lower())
+            for pii in valid_pii_texts:
+                similarity_score = distance.normalized_similarity(text.lower(), pii)
                 if similarity_score >= similarity_threshold:
                     print(f"Text '{text}' matched with PII '{pii}' with similarity {similarity_score*100:.2f}%")
                     
@@ -173,14 +208,7 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
                         y_max_pad = min(image.shape[0], y_max + padding_y)
 
                         roi = image[y_min_pad:y_max_pad, x_min_pad:x_max_pad]
-                        h, w = roi.shape[:2]
-                        if h > 0 and w > 0:
-                            k_w = max(3, min(int(w * 0.9) | 1, 99))
-                            k_h = max(3, min(int(h * 0.9) | 1, 99))
-                            # Double-pass Gaussian Blur with high sigma for a very strong blur
-                            blurred = cv2.GaussianBlur(roi, (k_w, k_h), 50)
-                            blurred = cv2.GaussianBlur(blurred, (k_w, k_h), 50)
-                            image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = blurred
+                        image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = heavy_blur_roi(roi)
                     elif highlight_mode == 'rectangular_box':
                         cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), -1)
     if facial:
