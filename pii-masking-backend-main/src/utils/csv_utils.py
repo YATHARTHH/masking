@@ -103,7 +103,9 @@ def process_csv(csv_path,pii_category,highlight_mode):
     PII Categories to Detect:
     """
     inputs=[csv_prompt+pii_category+"\n\n\nCSV Data: \n"+d.head().to_string()]
-    response = client.models.generate_content(
+    from src.utils.gemini_utils import generate_content_with_retry
+    response = generate_content_with_retry(
+            client,
             model="gemini-2.0-flash",
             contents=inputs
         )

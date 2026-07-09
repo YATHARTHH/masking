@@ -52,7 +52,9 @@ def detect_pii_for_video(frame_image, pii_category):
     """
     
     try:
-        response = client.models.generate_content(
+        from src.utils.gemini_utils import generate_content_with_retry
+        response = generate_content_with_retry(
+            client,
             model="gemini-2.0-flash",
             contents=[prompt + "\n\n\nPII Categories to Identify: " + pii_category, frame_image]
         )

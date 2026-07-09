@@ -80,7 +80,9 @@ def detect_pii(content,pii_category):
         Only identify the presence of PII; do not alter, mask, or remove any details.
         Ensure the output is properly structured and JSON-compliant.
     """
-    response = client.models.generate_content(
+    from src.utils.gemini_utils import generate_content_with_retry
+    response = generate_content_with_retry(
+            client,
             model="gemini-2.0-flash",
             contents=[prompt+"\n\n\nPII Categories to Identify: "+pii_category, content]
         )

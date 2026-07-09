@@ -57,7 +57,9 @@ def process_docx(docx_path,pii_category,highlight_mode):
     docu=""
     for para in doc.paragraphs:
         docu+=para.text.strip()
-    response = client.models.generate_content(
+    from src.utils.gemini_utils import generate_content_with_retry
+    response = generate_content_with_retry(
+            client,
             model="gemini-2.0-flash",
             contents=[prompt+docu+"\n\n\nPII Categories to Identify: "+pii_category, ]
         )

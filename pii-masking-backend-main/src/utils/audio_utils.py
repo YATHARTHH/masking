@@ -174,7 +174,9 @@ PII Categories to Detect:
         myfile = client.files.upload(file=audio_path)
         
         print(f"Generating content with Gemini...")
-        response = client.models.generate_content(
+        from src.utils.gemini_utils import generate_content_with_retry
+        response = generate_content_with_retry(
+            client,
             model='gemini-2.0-flash',
             contents=[audio_prompt + pii_category, myfile]
         )
