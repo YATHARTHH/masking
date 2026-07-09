@@ -66,9 +66,11 @@ def process_docx(docx_path,pii_category,highlight_mode):
     if response and response.text:
         try:
             pii_data = json.loads(response.text[response.text.index("{"):response.text.rindex("}") + 1])
+            from src.utils.gemini_utils import filter_pii_by_categories
+            filtered_list = filter_pii_by_categories(pii_data.get("detected_pii", []), pii_category)
+            print("Filtered PII:", filtered_list)
             l=[]
-            print(pii_data)
-            for i in pii_data["detected_pii"]:
+            for i in filtered_list:
                 l.append((i["original_text"],i["type"]))
             for para in doc.paragraphs:
 

@@ -112,9 +112,10 @@ def process_csv(csv_path,pii_category,highlight_mode):
     if response and response.text:
         try:
             pii_data = json.loads(response.text[response.text.index("{"):response.text.rindex("}") + 1])
-            print(pii_data)
-            print(type(pii_data))
-            for i in pii_data["detected_pii"]:
+            from src.utils.gemini_utils import filter_pii_by_categories
+            filtered_list = filter_pii_by_categories(pii_data.get("detected_pii", []), pii_category)
+            print("Filtered PII:", filtered_list)
+            for i in filtered_list:
                 c=i.get("column_name")
                 l=[]
                 for j in d[c]:
