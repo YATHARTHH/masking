@@ -192,7 +192,9 @@ def process_image(image_path,pii_category,highlight_mode,facial):
     highlight_mode=highlight_mode
     content=Image.open(image_path)
     pii_info = detect_pii(content,pii_category)
-    print(pii_info)
+    from src.utils.gemini_utils import filter_pii_by_categories
+    pii_info = filter_pii_by_categories(pii_info, pii_category)
+    print("Filtered PII:", pii_info)
     pii_texts = [entry["original_text"] for entry in pii_info]
 
     

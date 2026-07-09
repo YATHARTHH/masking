@@ -62,7 +62,10 @@ def detect_pii_for_video(frame_image, pii_category):
         if response and response.text:
             try:
                 pii_data = json.loads(response.text[response.text.index("{"):response.text.rindex("}") + 1])
-                return pii_data.get("detected_pii", [])
+                detected_list = pii_data.get("detected_pii", [])
+                from src.utils.gemini_utils import filter_pii_by_categories
+                filtered_list = filter_pii_by_categories(detected_list, pii_category)
+                return filtered_list
             except json.JSONDecodeError:
                 return []
     except Exception as e:
