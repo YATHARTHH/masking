@@ -103,7 +103,14 @@ def mask_human(image,highlight_mode):
                 x1, y1, x2, y2 = map(int, box.xyxy[0]) 
                 
                 if highlight_mode == 'blurring':
-                    image[y1:y2, x1:x2] = cv2.GaussianBlur(image[y1:y2, x1:x2], (99, 99), 30) 
+                    roi = image[y1:y2, x1:x2]
+                    h, w = roi.shape[:2]
+                    if h > 0 and w > 0:
+                        k_w = min(w - (1 if w % 2 == 0 else 0), 99)
+                        k_h = min(h - (1 if h % 2 == 0 else 0), 99)
+                        k_w = max(3, k_w)
+                        k_h = max(3, k_h)
+                        image[y1:y2, x1:x2] = cv2.GaussianBlur(roi, (k_w, k_h), 50)
                 elif highlight_mode == 'rectangular_box':
                     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 255), -1) 
             
@@ -127,9 +134,23 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
             x_max, y_max = int(bottom_right[0]), int(bottom_right[1])
 
             if highlight_mode == 'blurring':
-                roi = image[y_min:y_max, x_min:x_max]
-                blurred = cv2.GaussianBlur(roi, (51, 51), 30)
-                image[y_min:y_max, x_min:x_max] = blurred
+                # Add padding to fully obscure character borders
+                padding_x = int((x_max - x_min) * 0.1) + 2
+                padding_y = int((y_max - y_min) * 0.1) + 2
+                x_min_pad = max(0, x_min - padding_x)
+                y_min_pad = max(0, y_min - padding_y)
+                x_max_pad = min(image.shape[1], x_max + padding_x)
+                y_max_pad = min(image.shape[0], y_max + padding_y)
+
+                roi = image[y_min_pad:y_max_pad, x_min_pad:x_max_pad]
+                h, w = roi.shape[:2]
+                if h > 0 and w > 0:
+                    k_w = max(3, min(int(w * 0.9) | 1, 99))
+                    k_h = max(3, min(int(h * 0.9) | 1, 99))
+                    # Double-pass Gaussian Blur with high sigma for a very strong blur
+                    blurred = cv2.GaussianBlur(roi, (k_w, k_h), 50)
+                    blurred = cv2.GaussianBlur(blurred, (k_w, k_h), 50)
+                    image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = blurred
             elif highlight_mode == 'rectangular_box':
                 cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), -1)
         if results:
@@ -143,9 +164,23 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
                     x_max, y_max = int(bottom_right[0]), int(bottom_right[1])
 
                     if highlight_mode == 'blurring':
-                        roi = image[y_min:y_max, x_min:x_max]
-                        blurred = cv2.GaussianBlur(roi, (51, 51), 30)
-                        image[y_min:y_max, x_min:x_max] = blurred
+                        # Add padding to fully obscure character borders
+                        padding_x = int((x_max - x_min) * 0.1) + 2
+                        padding_y = int((y_max - y_min) * 0.1) + 2
+                        x_min_pad = max(0, x_min - padding_x)
+                        y_min_pad = max(0, y_min - padding_y)
+                        x_max_pad = min(image.shape[1], x_max + padding_x)
+                        y_max_pad = min(image.shape[0], y_max + padding_y)
+
+                        roi = image[y_min_pad:y_max_pad, x_min_pad:x_max_pad]
+                        h, w = roi.shape[:2]
+                        if h > 0 and w > 0:
+                            k_w = max(3, min(int(w * 0.9) | 1, 99))
+                            k_h = max(3, min(int(h * 0.9) | 1, 99))
+                            # Double-pass Gaussian Blur with high sigma for a very strong blur
+                            blurred = cv2.GaussianBlur(roi, (k_w, k_h), 50)
+                            blurred = cv2.GaussianBlur(blurred, (k_w, k_h), 50)
+                            image[y_min_pad:y_max_pad, x_min_pad:x_max_pad] = blurred
                     elif highlight_mode == 'rectangular_box':
                         cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), -1)
     if facial:
