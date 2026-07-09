@@ -1,0 +1,23 @@
+# Python Virtual Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Local Credentials
+.env
+.env.local
+
+# Node.js
+node_modules/
+dist/
+
+# Application uploads & outputs
+**/uploads/
+**/processed/
+temp_ppt/
+
+# IDEs
+.vscode/
+.idea/
+

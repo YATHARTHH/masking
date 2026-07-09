@@ -1,0 +1,21 @@
+pymupdf
+easyocr
+opencv-python
+pillow
+textdistance
+numpy
+flask
+pdf2image
+google_genai
+pandas
+pydub
+audioread
+# wave
+ultralytics
+python-docx
+flask_cors
+paddleocr
+paddlepaddle
+rapidfuzz
+fuzzywuzzy
+

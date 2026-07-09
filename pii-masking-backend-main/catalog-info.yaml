@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  # name: PII-Masking-Backend
+  name: "pii-masking-backend"
+  description: "FAST-API  of PII Masking"
+  annotations:
+    github.com/project-slug: Ascentt-Systems/pii-masking-backend
+    backstage.io/techdocs-ref: dir:.
+    aws.amazon.com/cost-insights-tags: CostProject=PII-Masking-Backend,CostService=pii-masking-backend
+    sonarqube.org/project-key: pii-masking-backend
+spec:
+  type: service
+  lifecycle: experimental
+  owner: "group:default/ascentt_devhub_team"
+  createdBy: "user:default/devesh.rajwani_ascentt.com"
+  subcomponentOf: "PII-Masking-Backend"
