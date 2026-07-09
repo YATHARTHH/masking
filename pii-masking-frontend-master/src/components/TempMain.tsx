@@ -199,7 +199,7 @@ const TempMain = () => {
         const masks = maskingTypes[mType as keyof typeof maskingTypes];
 
         return masks.map((mask) => (
-            <label className="flex items-center space-x-2">
+            <label key={mask.value} className="flex items-center space-x-2">
                 <input
                     type="radio"
                     name="maskingType"
