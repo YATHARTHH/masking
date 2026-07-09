@@ -54,7 +54,9 @@ def process_text(text_path,pii_category,highlight_mode):
     v.seek(0)
     text=v.read()
     v.close()
-    response = client.models.generate_content(
+    from src.utils.gemini_utils import generate_content_with_retry
+    response = generate_content_with_retry(
+            client,
             model="gemini-2.0-flash",
             contents=[prompt+text+"\n\n\nPII Categories to Identify: "+pii_category, ]
         )
