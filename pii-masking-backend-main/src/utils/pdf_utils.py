@@ -14,7 +14,10 @@ PROCESSED_FOLDER = "processed"
 def process_pdf(pdf_path,pii_category,highlight_mode,facial):
     pdf_path=Path(pdf_path)
     doc = fitz.open(pdf_path)
-    images = [page.get_pixmap() for page in doc]  
+    # Render PDF pages at 300 DPI to ensure local OCR can read small/colored text accurately
+    zoom = 300 / 72
+    matrix = fitz.Matrix(zoom, zoom)
+    images = [page.get_pixmap(matrix=matrix) for page in doc]  
     processed_images = []
 
     for i, image in enumerate(images):
