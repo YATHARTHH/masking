@@ -1,0 +1,124 @@
+@import url("https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --background-grey: #FAFAFA;
+  --background: #FFFFFF;
+  --foreground: #242424;
+  --primary: #F58321;
+  --secondary: #9F9F9F;
+  --light: #E0E0E0;
+  --font-primary: "Work Sans", sans-serif;
+  --custom-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-grey: var(--background-grey);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-light: var(--light);
+  --font-primary: var(--font-primary);
+  --shadow-custom: var(--custom-shadow);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #FFFFFF;
+    --background-grey: #FAFAFA;
+    --foreground: #171A1E;
+    --primary: #FF6600;
+    --secondary: #9F9F9F;
+    --font-primary: "Work Sans", sans-serif;
+  }
+}
+
+body {
+  color: var(--foreground);
+  font-family: var(--font-primary);
+ 
+  /* Gradient background */
+  background: linear-gradient(to bottom left, #FFF1E7, #EEEEEE);
+ 
+  /* Background image on top-right */
+  background-image:
+      url("/images/back-image.png"),
+      linear-gradient(to bottom left, #FFF1E7, #EEEEEE);
+ 
+  background-repeat: no-repeat;
+  background-position: top right, top left;  
+  background-size: 460px auto, cover;
+}
+ 
+
+body {
+  @apply bg-background-grey
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply m-0
+}
+
+#root {
+  width: 100%;
+  min-height: calc(100vh - 80px);
+}
+
+/* ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--foreground);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--primary);
+} */
+
+/* HTML: <div class="loader"></div> */
+
+.loader {
+  width: 30px;
+  aspect-ratio: 2;
+  --_g: no-repeat radial-gradient(circle closest-side, #f58321 90%, #0000);
+  background:
+    var(--_g) 0% 50%,
+    var(--_g) 50% 50%,
+    var(--_g) 100% 50%;
+  background-size: calc(100%/3) 50%;
+  animation: l3 1s infinite linear;
+}
+
+@keyframes l3 {
+  20% {
+    background-position: 0% 0%, 50% 50%, 100% 50%
+  }
+
+  40% {
+    background-position: 0% 100%, 50% 0%, 100% 50%
+  }
+
+  60% {
+    background-position: 0% 50%, 50% 100%, 100% 0%
+  }
+
+  80% {
+    background-position: 0% 50%, 50% 50%, 100% 100%
+  }
+}

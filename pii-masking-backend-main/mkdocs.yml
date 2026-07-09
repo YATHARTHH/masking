@@ -1,0 +1,7 @@
+site_name: piimasking-backend
+
+nav:
+  - Introduction: index.md
+
+plugins:
+  - techdocs-core

@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: "PII-Masking"
+  description: "PII Masking"
+  annotations:
+    github.com/project-slug: Ascentt-Business-Systems/PII-Masking-Frontend
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: documentation
+  lifecycle: experimental
+  owner: "group:default/ascentt_systems_inc"

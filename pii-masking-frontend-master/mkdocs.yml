@@ -1,0 +1,9 @@
+site_name: "PII-Masking"
+site_description: "PII Masking"
+
+nav:
+  - Introduction: index.md
+  - frontend: frontend/frontend.md
+
+plugins:
+  - techdocs-core
