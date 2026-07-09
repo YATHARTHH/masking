@@ -60,7 +60,7 @@ def process_docx(docx_path,pii_category,highlight_mode):
     from src.utils.gemini_utils import generate_content_with_retry
     response = generate_content_with_retry(
             client,
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=[prompt+docu+"\n\n\nPII Categories to Identify: "+pii_category, ]
         )
     if response and response.text:
