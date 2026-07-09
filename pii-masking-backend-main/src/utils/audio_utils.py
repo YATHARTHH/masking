@@ -177,7 +177,7 @@ PII Categories to Detect:
         from src.utils.gemini_utils import generate_content_with_retry
         response = generate_content_with_retry(
             client,
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=[audio_prompt + pii_category, myfile]
         )
         

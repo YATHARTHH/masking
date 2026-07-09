@@ -106,7 +106,7 @@ def process_csv(csv_path,pii_category,highlight_mode):
     from src.utils.gemini_utils import generate_content_with_retry
     response = generate_content_with_retry(
             client,
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=inputs
         )
     if response and response.text:
