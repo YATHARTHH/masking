@@ -4,6 +4,13 @@ from fastapi.responses import FileResponse, JSONResponse
 import os
 import base64
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Import all utility functions
 from src.utils.pdf_utils import process_pdf
 from src.utils.image_utils import process_image

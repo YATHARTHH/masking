@@ -21,4 +21,4 @@ fuzzywuzzy
 fastapi
 uvicorn
 python-multipart
-
+python-dotenv
