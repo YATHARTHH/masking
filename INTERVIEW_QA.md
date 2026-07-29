@@ -1,17 +1,17 @@
 # PII Shield Enterprise - Master Interview Q&A Guide
 
-This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **35 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, and scenario-based interview responses.
+This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **36 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, and scenario-based interview responses.
 
 ---
 
 ## 📑 Table of Contents
 1. [Pillar 1: Project Overview & Business Value (Q1 - Q4)](#pillar-1-project-overview--business-value)
 2. [Pillar 2: Technology Stack Justifications (Q5 - Q11)](#pillar-2-technology-stack-justifications)
-3. [Pillar 3: Per-Format Processing Pipelines (Q12 - Q18)](#pillar-3-per-format-processing-pipelines)
-4. [Pillar 4: Enterprise Security & Governance (Q19 - Q24)](#pillar-4-enterprise-security--governance)
-5. [Pillar 5: System Design & Production Scaling (Q25 - Q29)](#pillar-5-system-design--production-scaling)
-6. [Pillar 6: Developer Quality & Operations (Q30 - Q32)](#pillar-6-developer-quality--operations)
-7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q33 - Q35)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
+3. [Pillar 3: Per-Format Processing Pipelines (Q12 - Q19)](#pillar-3-per-format-processing-pipelines)
+4. [Pillar 4: Enterprise Security & Governance (Q20 - Q25)](#pillar-4-enterprise-security--governance)
+5. [Pillar 5: System Design & Production Scaling (Q26 - Q30)](#pillar-5-system-design--production-scaling)
+6. [Pillar 6: Developer Quality & Operations (Q31 - Q33)](#pillar-6-developer-quality--operations)
+7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q34 - Q36)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
 
 ---
 
@@ -126,7 +126,13 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 > - **Word (`.docx`)**: We use `python-docx` to iterate through document paragraph XML nodes and table cells. Matched PII text strings are replaced directly in the text node elements while preserving styling.
 > - **PowerPoint (`.pptx`)**: We use `python-pptx` to iterate across slides, shape frames, and text frames, substituting matched strings paragraph by paragraph.
 
-### Q17: How do you scale CSV / Excel spreadsheet masking for 100,000+ rows?
+### Q17: "Do you use Levenshtein distance for all file formats, including Word (.docx) and PowerPoint (.pptx)?"
+> **Answer:**  
+> "No, we use Levenshtein distance selectively based on whether OCR is involved:
+> 1. **WHERE IT IS USED**: EasyOCR visual text extraction on **Images, PDFs, Video frames, and PowerPoint slide images** (`image_utils.py`, `video_utils.py`). Visual OCR engines often introduce minor recognition typos (e.g., `'123-45-6789'` vs `'I23-45-6789'`). We use `textdistance.Levenshtein()` to fuzzy-match OCR word boxes with Gemini's detected text so minor OCR typos don't cause missed redactions.
+> 2. **WHERE IT IS NOT USED**: Digital text in **Word documents (`.docx`)** (`docx_utils.py`), **Plain Text (`.txt`)**, and **Spreadsheets (`.csv`)**. Because text is extracted directly from clean digital XML text nodes in memory (`para.text`), there are no OCR typos. Therefore, `.docx` and `.txt` use exact Python string matching (`para.text.replace(pii_text, replacement)`), which is faster and prevents false-positive fuzzy replacements."
+
+### Q18: How do you scale CSV / Excel spreadsheet masking for 100,000+ rows?
 > **Answer:**  
 > Passing 100,000 rows to Gemini would exceed LLM token limits and cost thousands of dollars.  
 > We use a **Schema Sampling Technique**:
@@ -134,7 +140,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 > 2. Gemini inspects only the 15-row sample to identify column-level PII mapping (e.g. Column B = Email).
 > 3. Pandas applies vectorized local regex transformations across all 100,000 rows in milliseconds with zero LLM API cost.
 
-### Q18: What text redaction modes are supported for documents?
+### Q19: What text redaction modes are supported for documents?
 > **Answer:**  
 > 1. **General Replacement**: Replaces sensitive words with `[MASKED]`.
 > 2. **Named Replacement**: Replaces words with category labels like `[Full Name]` or `[Credit Card]`.
@@ -144,28 +150,28 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 🔒 Pillar 4: Enterprise Security & Governance
 
-### Q19: How does the Air-Gapped Offline Fallback Engine work?
+### Q20: How does the Air-Gapped Offline Fallback Engine work?
 > **Answer:**  
 > Located in `src/services/fallback_engine.py`. If Gemini API fails or if `OFFLINE_MODE=true` is set, requests route to a local Python regex scanner containing compiled patterns for Email, Phone Numbers, SSNs, Credit Cards, IP Addresses, and Dates of Birth, allowing complete air-gapped operation.
 
-### Q20: How does the Automatic File Shredder (TTL Cleaner) enforce zero-retention?
+### Q21: How does the Automatic File Shredder (TTL Cleaner) enforce zero-retention?
 > **Answer:**  
 > Located in `src/services/ttl_cleaner.py`. On server startup, an async background task (`asyncio.create_task`) is spawned. Every 60 seconds, it checks file modification times in `uploads/` and `processed/` folders, permanently deleting any file older than `FILE_TTL_SECONDS` (default: 3600s / 1 hour).
 
-### Q21: How does the Audit Ledger & Compliance Exporter work?
+### Q22: How does the Audit Ledger & Compliance Exporter work?
 > **Answer:**  
 > Every request automatically logs `job_id`, `timestamp`, `filename`, `file_hash_sha256`, `pii_categories`, `masking_type`, and `processing_time_ms` into SQLite.  
 > The endpoint `GET /api/v1/audit/export` reads this ledger and uses `compliance_reporter.py` to generate downloadable HTML/PDF audit verification certificates for GDPR/HIPAA compliance officers.
 
-### Q22: How is API Key Authentication handled?
+### Q23: How is API Key Authentication handled?
 > **Answer:**  
 > API keys are passed in the `X-API-Key` request header. `auth_middleware.py` hashes the incoming key using SHA-256 and queries the `api_keys` SQLite table to verify active status and role permissions before allowing request execution.
 
-### Q23: How do middleware layers enhance security and tracing?
+### Q24: How do middleware layers enhance security and tracing?
 > **Answer:**  
 > `AuditMiddleware` intercepts all HTTP traffic to compute processing latency and inject enterprise security headers (`X-Enterprise-Processing-Time-MS`, `X-Enterprise-Security-Level: AES-256-Local`) into HTTP responses.
 
-### Q24: How do you prevent file collisions when multiple users upload files with the same name?
+### Q25: How do you prevent file collisions when multiple users upload files with the same name?
 > **Answer:**  
 > Incoming files are renamed on disk with a UUID v4 prefix and epoch timestamp (e.g., `uploads/a1b2c3d4_1719827361_invoice.pdf`). The original filename is stored safely in metadata.
 
@@ -173,7 +179,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 🚀 Pillar 5: System Design & Production Scaling
 
-### Q25: "What happens if a user uploads a 500-page PDF?"
+### Q26: "What happens if a user uploads a 500-page PDF?"
 > **Answer:**  
 > Processing 500 pages synchronously risks HTTP timeouts. We handle large files asynchronously:
 > 1. Document is split into page batches using `pypdf`.
@@ -181,23 +187,23 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 > 3. Frontend polls `/api/v1/jobs/{job_id}` for progress updates.
 > 4. Temporary page images are garbage-collected after each batch to keep memory utilization under 512MB.
 
-### Q26: "How would you scale this system to 1,000,000 files/day in production?"
+### Q27: "How would you scale this system to 1,000,000 files/day in production?"
 > **Answer:**  
 > 1. **Stateless Kubernetes Cluster**: Deploy FastAPI backend as stateless Docker pods on Kubernetes with Horizontal Pod Autoscaling (HPA).
 > 2. **Distributed Task Queue**: Replace local job queue with **Celery + Redis / RabbitMQ** workers dedicated to heavy GPU video/OCR processing.
 > 3. **Cloud Storage**: Move local disk uploads to **AWS S3 / Google Cloud Storage** with S3 Lifecycle policies for automatic object expiration.
 > 4. **Database & Caching**: Move SQLite to **AWS Aurora PostgreSQL** with read-replicas for audit queries, and use Redis for file hash deduplication caching.
 
-### Q27: How do you handle Gemini API Rate Limits (HTTP 429)?
+### Q28: How do you handle Gemini API Rate Limits (HTTP 429)?
 > **Answer:**  
 > We wrap GenAI API calls in an exponential backoff retry function (`generate_content_with_retry`). If an HTTP 429 or `resource_exhausted` error occurs, the helper sleeps for `initial_backoff * 2^attempt` seconds up to 5 retries before failing.
 
-### Q28: How do you handle False Positives and False Negatives?
+### Q29: How do you handle False Positives and False Negatives?
 > **Answer:**  
 > 1. **Levenshtein Ratio Thresholding**: String similarity must meet or exceed 85% (`ratio >= 0.85`), with strict 100% exact matching enforced for short words ($\le 3$ chars).
 > 2. **Human-in-the-Loop Queue (`/preview`)**: Pre-inspection workbench allows operators to visually review detected entities before triggering destructive masking.
 
-### Q29: Why choose a Monorepo architecture over Polyrepo?
+### Q30: Why choose a Monorepo architecture over Polyrepo?
 > **Answer:**  
 > 1. **Atomic Commits**: Frontend and backend API changes are committed together, eliminating breaking contract mismatches.
 > 2. **Unified Quality Tooling**: Shared pre-commit hooks (Ruff, Biome, Gitleaks, Semgrep) run across both frontend and backend in a single developer workflow.
@@ -206,19 +212,19 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 🛠️ Pillar 6: Developer Quality & Operations
 
-### Q30: What static analysis and security scanning tools are integrated?
+### Q31: What static analysis and security scanning tools are integrated?
 > **Answer:**  
 > - **Gitleaks**: Scans git commits for leaked API keys or secrets.
-> - **Ruff**: High-speed Python linter enforcing PEP 8 style standards.
+> - **Ruff**: High-speed Python linter enforcing PEP 8.
 > - **Bandit**: Static security analyzer detecting insecure Python code patterns (e.g. `eval`, hardcoded passwords).
 > - **Semgrep**: Static analysis checking FastAPI route security.
 
-### Q31: How do you verify build correctness before deployment?
+### Q32: How do you verify build correctness before deployment?
 > **Answer:**  
 > 1. **Backend**: Python syntax and import validation using `python -m py_compile`.
 > 2. **Frontend**: TypeScript type-checking using `tsc --noEmit` and Vite build bundling (`npm run build`).
 
-### Q32: What logging standard is used for troubleshooting?
+### Q33: What logging standard is used for troubleshooting?
 > **Answer:**  
 > We use structured JSON logging with custom trace IDs, capturing timestamps, route names, HTTP status codes, execution latency, and error tracebacks.
 
@@ -226,7 +232,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 💡 Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers
 
-### Q33: Core Technology Matrix
+### Q34: Core Technology Matrix
 | Domain | Technology Selected | Key Function |
 | :--- | :--- | :--- |
 | **Backend API** | FastAPI + Python 3.11 | Async ASGI Web Gateway |
@@ -237,19 +243,19 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 | **Database** | SQLite3 (`pii_enterprise.db`) | Local Audit Ledger & Job Tracking |
 | **Encryption** | Fernet AES-256 | Storage at Rest Security |
 
-### Q34: Top 10 One-Word Memory Anchors for Interviews
+### Q35: Top 10 One-Word Memory Anchors for Interviews
 1. **FastAPI**: Async ASGI
 2. **Vite**: Instant HMR
 3. **Gemini 2.0**: Multimodal Context
 4. **YOLOv8**: Single-Pass CNN
 5. **EasyOCR**: Bounding Box Localization
-6. **Levenshtein**: Fuzzy String Matching
+6. **Levenshtein**: Selective Fuzzy Matching (OCR Only)
 7. **SQLite**: Zero-Config Persistence
 8. **Fernet**: AES-256 Storage Security
 9. **TTL Cleaner**: Zero Retention Shredding
 10. **Pandas**: Vectorized Schema Sampling
 
-### Q35: Key Metrics to Quote in Interviews
+### Q36: Key Metrics to Quote in Interviews
 - **300 DPI**: High-resolution PyMuPDF page rendering matrix ($300 / 72 = 4.166\times$).
 - **85% Similarity Ratio**: Minimum Levenshtein fuzzy match threshold for OCR word alignment.
 - **10% + 2px**: Dynamic border padding added around OCR bounding boxes to prevent edge leakage.
