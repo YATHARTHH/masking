@@ -1,37 +1,19 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-// import ProtectedRoute from '@/components/ProtectedRoute';
 import Main from '@/pages/main/Page';
-// import DefaultRedirect from '@/components/DefaultRedirect';
-
-/* ------------------------- mention all routes here ------------------------ */
+import AnalyticsDashboard from '@/pages/analytics/AnalyticsDashboard';
+import AuditLogsPage from '@/pages/audit/AuditLogsPage';
+import BatchProcessingPage from '@/pages/batch/BatchProcessingPage';
+import HITLPreviewWorkbench from '@/pages/preview/HITLPreviewWorkbench';
 
 export default function AppRoutes() {
-
     return (
         <Router>
             <Routes>
-                {/* Public Routes */}
-                {/* <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} /> */}
-
-
-                <Route
-                    path="/"
-                    element={
-                        // <ProtectedRoute>
-                            <Main />
-                        // </ProtectedRoute>
-                    }
-                />
-
-                {/* <Route path="/admin" element={<ProtectedRoute adminOnly={true}><AdminMain /></ProtectedRoute>} /> */}
-
-
-                {/* Default Route - Redirect based on authentication */}
-                {/* <Route
-                    path="/"
-                    element={<DefaultRedirect />}
-                /> */}
+                <Route path="/" element={<Main />} />
+                <Route path="/analytics" element={<AnalyticsDashboard />} />
+                <Route path="/audit" element={<AuditLogsPage />} />
+                <Route path="/batch" element={<BatchProcessingPage />} />
+                <Route path="/preview" element={<HITLPreviewWorkbench />} />
 
                 {/* Catch all other routes */}
                 <Route path="*" element={<Navigate to="/" replace />} />
