@@ -1,195 +1,224 @@
-# PII Masking & Redaction System: Enterprise Developer's Guide
+# PII Shield Enterprise - Complete End-to-End Technical & Developer Guide
 
-Welcome to the comprehensive technical documentation for the **PII Shield Enterprise System**. This guide provides an end-to-end conceptual, architectural, and code-level walkthrough of both the core PII processing engines and all **Production/Enterprise features** built into the application.
+Welcome to the master technical documentation for **PII Shield Enterprise**. This guide provides an exhaustive, end-to-end deep dive into every single layer of the application: system architecture, technology choices, per-format masking mechanics, production security, database models, background daemons, API routes, frontend components, and cloud scaling strategies.
 
 ---
 
 ## 📑 Table of Contents
-1. [Project Overview & Core Concepts](#1-project-overview--concepts)
-2. [Enterprise System Architecture & Diagrams](#2-enterprise-system-architecture)
-3. [Step-by-Step Request Lifecycle & Pipeline](#3-step-by-step-processing-pipeline)
-4. [Enterprise Production Features: Deep-Dive Code Analysis](#4-enterprise-production-features-deep-dive-code-analysis)
-   - [4.1 Local SQLite Database Layer (`src/db/database.py`)](#41-local-sqlite-database-layer-srcdbdatabasepy)
-   - [4.2 AES-256 Storage Encryption & Security (`src/core/security.py`)](#42-aes-256-storage-encryption--security-srccoresecuritypy)
-   - [4.3 Async TTL File Shredder Daemon (`src/services/ttl_cleaner.py`)](#43-async-ttl-file-shredder-daemon-srcservicesttl_cleanerpy)
-   - [4.4 Air-Gapped Offline Fallback Engine (`src/services/fallback_engine.py`)](#44-air-gapped-offline-fallback-engine-srcservicesfallback_enginepy)
-   - [4.5 Compliance Exporter (`src/services/compliance_reporter.py`)](#45-compliance-exporter-srcservicescompliance_reporterpy)
-   - [4.6 Middleware & API Key Auth (`src/middleware/`)](#46-middleware--api-key-auth-srcmiddleware)
-   - [4.7 Enterprise REST API Router (`src/api/v1/router.py`)](#47-enterprise-rest-api-router-srcapiv1routerpy)
-5. [Frontend Enterprise Workspace Walkthrough](#5-frontend-enterprise-workspace-walkthrough)
-6. [Core Masking Utilities Engineering Details](#6-core-masking-utilities-engineering-details)
-7. [Master Interview Q&A Guide Reference](#7-master-interview-qa-guide-reference)
+1. [System Overview & Business Core](#1-system-overview--business-core)
+2. [Complete Technology Stack & Engine Matrix](#2-complete-technology-stack--engine-matrix)
+3. [End-to-End Request Lifecycle & Flowcharts](#3-end-to-end-request-lifecycle--flowcharts)
+4. [Deep-Dive Masking Mechanics by File Format](#4-deep-dive-masking-mechanics-by-file-format)
+   - [4.1 Images & PDF Documents](#41-images--pdf-documents)
+   - [4.2 Biometric Face Blurring (YOLOv8)](#42-biometric-face-blurring-yolov8)
+   - [4.3 Audio Processing & Beep Overlays](#43-audio-processing--beep-overlays)
+   - [4.4 High-FPS Parallel Video Pipeline](#44-high-fps-parallel-video-pipeline)
+   - [4.5 Word & PowerPoint XML Processing](#45-word--powerpoint-xml-processing)
+   - [4.6 Spreadsheets (100K+ Row Sampling)](#46-spreadsheets-100k-row-sampling)
+   - [4.7 Plain Text Obfuscation Modes](#47-plain-text-obfuscation-modes)
+5. [Enterprise Production Infrastructure Code Walkthrough](#5-enterprise-production-infrastructure-code-walkthrough)
+   - [5.1 Database Layer (`src/db/database.py`)](#51-database-layer-srcdbdatabasepy)
+   - [5.2 AES-256 Security & Encryption (`src/core/security.py`)](#52-aes-256-security--encryption-srccoresecuritypy)
+   - [5.3 Async TTL File Shredder (`src/services/ttl_cleaner.py`)](#53-async-ttl-file-shredder-srcservicesttl_cleanerpy)
+   - [5.4 Air-Gapped Offline Fallback Engine (`src/services/fallback_engine.py`)](#54-air-gapped-offline-fallback-engine-srcservicesfallback_enginepy)
+   - [5.5 Compliance Exporter (`src/services/compliance_reporter.py`)](#55-compliance-exporter-srcservicescompliance_reporterpy)
+   - [5.6 Middleware & API Key Auth (`src/middleware/`)](#56-middleware--api-key-auth-srcmiddleware)
+   - [5.7 Enterprise REST API Router (`src/api/v1/router.py`)](#57-enterprise-rest-api-router-srcapiv1routerpy)
+6. [Frontend Enterprise Workspace Walkthrough](#6-frontend-enterprise-workspace-walkthrough)
+7. [Resilience, Rate Limiting & Collision Avoidance](#7-resilience-rate-limiting--collision-avoidance)
+8. [DevOps, Security Scanning & Quality Control](#8-devops-security-scanning--quality-control)
+9. [Production Cloud Scaling Architecture](#9-production-cloud-scaling-architecture)
+10. [Master Interview Q&A Index](#10-master-interview-qa-index)
 
 ---
 
-## 1. Project Overview & Concepts
+## 1. System Overview & Business Core
 
-### What is PII?
-**Personally Identifiable Information (PII)** is any data that can be used to distinguish or trace an individual's identity.
-*   **Direct Identifiers:** Names, contact numbers, email addresses.
-*   **Indirect Identifiers:** SSN / Aadhaar numbers, PAN card numbers, bank account numbers, IP addresses, physical addresses.
+### What is PII Shield Enterprise?
+PII Shield Enterprise is an AI-powered, full-stack monorepo system engineered to automatically detect and sanitize Personally Identifiable Information (PII) across 7 file format families (Images, PDFs, Word, PowerPoint, Spreadsheets, Audio, Video).
 
-### Redaction Modes Supported
-1.  **Soft Blurring:** Downsampling + Gaussian filtering on images/videos to render text and faces mathematically unreadable.
-2.  **Solid Paint BBox:** Overlaying opaque solid rectangles over sensitive regions.
-3.  **General Replacement:** Replacing sensitive text with generic tags like `[MASKED]`.
-4.  **Named Replacement:** Replacing text with category labels (e.g., replacing "Yatharth" with `[Full Name]`).
-5.  **X-Character Mapping:** Preserving character length while redacting (e.g., "John" $\rightarrow$ `XXXX`).
-6.  **Audio Beeping:** Overlaying a 300 Hz sine-wave beep tone over sensitive audio timestamps.
+### Compliance Standards Addressed
+- **GDPR (Articles 5 & 17)**: Data minimization & zero-retention right to erasure.
+- **HIPAA Privacy Rule**: Sanitization of 18 Protected Health Information (PHI) identifiers in medical records and telehealth recordings.
+- **CCPA**: Consumer privacy enforcement.
+- **SOC 2 Type II**: Immutable audit logging and encrypted storage at rest.
 
 ---
 
-## 2. Enterprise System Architecture
+## 2. Complete Technology Stack & Engine Matrix
 
-The system consists of a modern **React + TypeScript SPA frontend** communicating with a high-performance **FastAPI REST API backend**, backed by an embedded **SQLite Database**, **AES-256 Storage Encryption**, **Async TTL Shredding Daemon**, and an **Air-Gapped Local Fallback Engine**.
+| Layer | Technology | Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Web Server** | FastAPI | 0.110+ | High-throughput ASGI Web Gateway |
+| **Frontend Framework** | React + TypeScript + Vite | 19 / 5.9 / 7.0 | Single-Page Application (SPA) |
+| **AI LLM Engine** | Google Gemini 2.0 Flash | Cloud API | Multimodal Semantic PII Detection |
+| **Computer Vision** | YOLOv8 Nano (`yolov8n.pt`) | PyTorch / ONNX | Real-time Biometric Face Blur |
+| **OCR Engine** | EasyOCR / PaddleOCR | PyTorch | Word Bounding Box Localization `(x, y, w, h)` |
+| **Database** | SQLite3 (`pii_enterprise.db`) | Embedded | Immutable Audit Ledger & Job State |
+| **Encryption** | Fernet AES-256 | Cryptography | Storage at Rest Security |
+| **Audio Processing** | `pydub` + `Sine(300)` | Python | Waveform Slicing & 300Hz Sine Beep |
+| **Document Processing** | `PyMuPDF`, `python-docx`, `python-pptx`, `pandas` | Python | High-DPI PDF, XML DOM, DataFrame Masking |
+
+---
+
+## 3. End-to-End Request Lifecycle & Flowcharts
 
 ```mermaid
 graph TD
-    A[React/Vite SPA Client] -- 1. API Request / Upload --> B[FastAPI Web Server]
-    B -- 2. Intercept Request --> M[Audit & Security Middleware]
+    A[Client Request / File Upload] --> B[FastAPI Web Server]
+    B --> M[Audit & Trace Middleware]
     
-    subgraph Enterprise Backend Core
-        B -- 3a. Online AI Detection --> E[Google Gemini 2.0 Flash API]
-        B -- 3b. Air-Gapped Fallback --> F[Local Offline Regex Engine]
-        B -- 4. Computer Vision / OCR --> D[EasyOCR & YOLOv8 Models]
-        B -- 5. Log Action --> DB[(Local SQLite DB: pii_enterprise.db)]
-        B -- 6. Store Encrypted File --> S[AES-256 Encrypted Disk Storage]
-        B -- 7. Auto Shred File after 1 hr --> T[Background TTL Cleaner Loop]
+    subgraph Pre-Processing & Security
+        M --> S1[SHA-256 Fingerprint Calculation]
+        S1 --> S2[AES-256 Encryption at Rest]
+        S2 --> S3[Format Rasterization / Parser]
     end
 
-    B -- 8. Return Base64 & Download Link --> A
-```
-
----
-
-## 3. Step-by-Step Processing Pipeline
-
-```mermaid
-sequenceDiagram
-    participant User as Client App / Frontend
-    participant API as FastAPI Backend
-    participant Audit as SQLite Audit Ledger
-    participant Gemini as Gemini 2.0 API
-    participant Fallback as Offline Regex Engine
-    participant Local as EasyOCR & YOLOv8
-
-    User->>API: Upload File + Categories + Masking Mode
-    rect rgb(240, 240, 250)
-        note over API: Pre-Processing & Security
-        API->>API: Compute SHA-256 file fingerprint
-        API->>API: Encrypt raw file with AES-256
-    end
-    
-    rect rgb(250, 240, 240)
-        note over API, Gemini: AI / Fallback Detection
-        alt Gemini API Online
-            API->>Gemini: Send file/audio with PII prompt
-            Gemini-->>API: Return JSON List (PII strings & types)
-        else Offline / API Error
-            API->>Fallback: Scan text using local regex patterns
-            Fallback-->>API: Return offline detected PII matches
-        end
+    subgraph AI Intelligence & Fallback
+        S3 --> AI{Gemini API Online?}
+        AI -- Yes --> LLM[Gemini 2.0 Flash Semantic Scan]
+        AI -- No / Error --> FB[Local Air-Gapped Regex Engine]
     end
 
-    rect rgb(240, 250, 240)
-        note over API, Local: Localization & Masking
-        API->>Local: EasyOCR bounding box coordinates (x, y, w, h)
-        API->>Local: YOLOv8 face detection bounding boxes
-        API->>API: Levenshtein fuzzy match + dynamic padding (10% + 2px)
-        API->>API: Render heavy blur / solid box / beep tone / text replacement
+    subgraph Spatial Localization & Redaction
+        LLM --> LOC[EasyOCR Bounding Boxes & YOLOv8 Face Boxes]
+        FB --> LOC
+        LOC --> ALIGN[Levenshtein Distance Fuzzy Match]
+        ALIGN --> MASK[Dynamic Padding 10% + 2px & Heavy Pixelated Blur / Beep]
     end
 
-    rect rgb(250, 250, 240)
-        note over API, Audit: Persistence & Audit
-        API->>API: Save redacted output to processed/
-        API->>Audit: Record job_id, SHA-256, latency & categories in SQLite
-        API-->>User: Return 200 OK with Base64 payload & Download URL
+    subgraph Persistence & Audit
+        MASK --> DB[(SQLite Audit Log Ledger)]
+        DB --> RET[Return Base64 Payload & Download URL]
+        RET --> TTL[Background Async TTL Shredder Loop]
     end
 ```
 
 ---
 
-## 4. Enterprise Production Features: Deep-Dive Code Analysis
+## 4. Deep-Dive Masking Mechanics by File Format
 
-### 4.1 Local SQLite Database Layer (`src/db/database.py`)
-Provides zero-configuration local ACID database persistence. Automatically creates tables on application startup via `init_db()`:
-- `audit_logs`: Stores `id`, `timestamp`, `filename`, `file_hash`, `pii_categories`, `masking_type`, `status`, `processing_time_ms`, `file_size_bytes`.
-- `api_keys`: Manages hashed authentication keys (`key_hash`, `name`, `role`, `created_at`, `is_active`).
-- `job_queue`: Tracks async background jobs (`id`, `status`, `progress`, `result_filename`, `error_message`).
+### 4.1 Images & PDF Documents (`image_utils.py` & `pdf_utils.py`)
+1. **High-Res 300 DPI Rendering**: PDF pages are rendered into image canvases using PyMuPDF (`fitz`) with a **$300/72 = 4.166\times$ zoom matrix**.
+2. **OCR Localization**: EasyOCR extracts pixel coordinates `(x_min, y_min, x_max, y_max)` for all words.
+3. **Fuzzy String Alignment**: Matches OCR words with Gemini PII strings using Levenshtein distance ($\text{similarity ratio} \ge 0.85$).
+4. **Dynamic Border Padding**: Adds a $10\% + 2\text{px}$ padding box around coordinates.
+5. **Heavy Blurring Algorithm**:
+   ```python
+   def heavy_blur_roi(roi):
+       h, w = roi.shape[:2]
+       # Downsample ROI to 10% size (physically destroys text pixel details)
+       small = cv2.resize(roi, (max(4, int(w * 0.1)), max(4, int(h * 0.1))), interpolation=cv2.INTER_LINEAR)
+       # Upsample back (creates blocky shapes)
+       pixelated = cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
+       # Apply Gaussian Blur to smooth edges
+       return cv2.GaussianBlur(pixelated, (max(5, int(w*0.1)|1), max(5, int(h*0.1)|1)), 0)
+   ```
 
+### 4.2 Biometric Face Blurring (YOLOv8)
+Single-pass CNN YOLOv8 (`yolov8n.pt`) detects human faces (`cls == 0`) and applies a heavy $(99, 99)$ Gaussian blur kernel or solid paint box over facial coordinates.
+
+### 4.3 Audio Processing & Beep Overlays (`audio_utils.py`)
+1. Gemini transcribes audio and returns word timestamps (`start_time`, `end_time`).
+2. `pydub` generates a 300 Hz sine-wave tone: `Sine(300).to_audio_segment(duration=duration_ms)`.
+3. Slices audio waveform: `audio[:start_ms] + beep + audio[end_ms:]`.
+
+### 4.4 High-FPS Parallel Video Pipeline (`video_utils.py`)
+Frame extraction is parallelized across worker threads using `ThreadPoolExecutor`:
 ```python
-def add_audit_log(filename: str, file_hash: str, pii_categories: List[str], masking_type: str, processing_time_ms: float = 0, file_size: int = 0, status: str = "SUCCESS"):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO audit_logs (timestamp, filename, file_hash, pii_categories, masking_type, status, processing_time_ms, file_size_bytes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (datetime.utcnow().isoformat(), filename, file_hash, json.dumps(pii_categories), masking_type, status, processing_time_ms, file_size))
-    conn.commit()
-    conn.close()
+with ThreadPoolExecutor(max_workers=4) as executor:
+    futures = [executor.submit(process_single_frame, frame) for frame in frames]
 ```
 
-### 4.2 AES-256 Storage Encryption & Security (`src/core/security.py`)
-- **Cryptographic File Fingerprinting**: `calculate_sha256(file_path)` computes unique SHA-256 hashes for every file.
-- **Storage Encryption at Rest**: `simple_encrypt_bytes` and `simple_decrypt_bytes` use **Fernet AES-256 stream encryption** derived from an environment secret key, securing files saved to `uploads/` and `processed/`.
-- **API Key Hashing**: `generate_api_key()` creates random API keys and stores SHA-256 hashes to prevent plaintext credential exposure.
+### 4.5 Word & PowerPoint XML Processing (`docx_utils.py`, `ppt_utils.py`)
+Parses `python-docx` / `python-pptx` paragraph XML DOM trees, substituting target strings inside text runs while preserving formatting.
 
-### 4.3 Async TTL File Shredder Daemon (`src/services/ttl_cleaner.py`)
-Enforces strict GDPR "Right to Erasure" zero-retention policies. Spawned on application startup as a background `asyncio` loop (`run_ttl_cleanup_loop`):
-- Runs every 60 seconds.
-- Scans `uploads/` and `processed/` folders.
-- Permanently shreds files whose age exceeds `FILE_TTL_SECONDS` (default: 3600 seconds / 1 hour).
+### 4.6 Spreadsheets (100K+ Row Sampling) (`csv_utils.py`)
+Samples 15 representative rows for Gemini to classify column-level PII schemas, then applies local Pandas vectorized regex masking across all 100,000+ rows instantly.
 
-### 4.4 Air-Gapped Offline Fallback Engine (`src/services/fallback_engine.py`)
-Provides offline resilience when Gemini API is unreachable or `OFFLINE_MODE=true` is set. Uses a pre-compiled Python regex engine matching:
-- `Email`, `Phone Number`, `SSN`, `Credit Card`, `IP Address`, `Date of Birth`, `API Key`, `Aadhaar Number`.
-
-### 4.5 Compliance Exporter (`src/services/compliance_reporter.py`)
-Generates formal, audit-ready HTML/PDF certificates summarizing sanitized records, encryption standards (AES-256), SHA-256 file hashes, and redaction modes for GDPR, HIPAA, and SOC 2 auditors.
-
-### 4.6 Middleware & API Key Auth (`src/middleware/`)
-- `AuditMiddleware`: Computes execution latency in milliseconds and injects custom enterprise headers (`X-Enterprise-Processing-Time-MS`, `X-Enterprise-Security-Level`).
-- `auth_middleware.py`: Validates `X-API-Key` headers against the SQLite database before granting route access.
-
-### 4.7 Enterprise REST API Router (`src/api/v1/router.py`)
-Exposes dedicated v1 endpoints:
-- `GET /api/v1/analytics/stats`: Real-time operational metrics & PII category breakdown.
-- `GET /api/v1/audit/logs`: Paginated audit ledger history.
-- `GET /api/v1/audit/export`: Exportable compliance certificate HTML report.
-- `POST /api/v1/batch`: Multi-file parallel batch masking.
-- `POST /api/v1/preview`: Human-in-the-loop (HITL) pre-redaction entity inspector.
-- `POST /api/v1/keys`: API Key creation.
+### 4.7 Plain Text Obfuscation Modes (`text_utils.py`)
+- **General**: `[MASKED]`
+- **Named**: `[Full Name]`, `[Credit Card]`
+- **X-Character Mapping**: `XXXX XXXXXX` (length-preserving).
 
 ---
 
-## 5. Frontend Enterprise Workspace Walkthrough
+## 5. Enterprise Production Infrastructure Code Walkthrough
 
-The React + TypeScript frontend is organized into 5 dedicated views:
-1. **[Interactive Workbench (`/`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/main/Page.tsx)**: Single-file upload workbench with live category multi-select dropdowns and download actions.
-2. **[Batch Processing (`/batch`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/batch/BatchProcessingPage.tsx)**: Multi-file drag & drop queue allowing parallel processing of multiple documents.
-3. **[HITL Review Queue (`/preview`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/preview/HITLPreviewWorkbench.tsx)**: Human-in-the-Loop inspector enabling compliance officers to verify detected PII entities before destructive masking.
-4. **[Audit Ledger (`/audit`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/audit/AuditLogsPage.tsx)**: Searchable audit table with one-click Compliance Certificate download.
-5. **[Analytics Dashboard (`/analytics`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/analytics/AnalyticsDashboard.tsx)**: Visual dashboard showing total files redacted, MBs sanitized, average latency, and category distribution bar charts.
+### 5.1 Database Layer (`src/db/database.py`)
+Manages the embedded SQLite file (`pii_enterprise.db`). On app startup, `init_db()` creates:
+- `audit_logs`: Records `id`, `timestamp`, `filename`, `file_hash`, `pii_categories`, `masking_type`, `status`, `processing_time_ms`, `file_size_bytes`.
+- `api_keys`: Manages hashed authentication keys (`key_hash`, `name`, `role`, `created_at`, `is_active`).
+- `job_queue`: Async job tracking (`id`, `status`, `progress`, `result_filename`, `error_message`).
+
+### 5.2 AES-256 Security & Encryption (`src/core/security.py`)
+- `calculate_sha256(file_path)`: Generates cryptographic file fingerprints.
+- `simple_encrypt_bytes` / `simple_decrypt_bytes`: Encrypts files saved to disk using Fernet AES-256 CBC stream encryption.
+- `generate_api_key()`: Creates random API keys (`pii_live_...`) and stores SHA-256 hashes.
+
+### 5.3 Async TTL File Shredder (`src/services/ttl_cleaner.py`)
+Runs an async background task (`run_ttl_cleanup_loop`) every 60 seconds, deleting raw and redacted files exceeding `FILE_TTL_SECONDS` (default: 3600s).
+
+### 5.4 Air-Gapped Offline Fallback Engine (`src/services/fallback_engine.py`)
+Contains compiled regex patterns matching `Email`, `Phone Number`, `SSN`, `Credit Card`, `IP Address`, `Date of Birth`, `API Key`, `Aadhaar Number`, routing requests locally when Gemini is offline.
+
+### 5.5 Compliance Exporter (`src/services/compliance_reporter.py`)
+Generates downloadable HTML/PDF certificates summarizing sanitized records, encryption standards, and file hashes for GDPR/HIPAA audits.
+
+### 5.6 Middleware & API Key Auth (`src/middleware/`)
+- `AuditMiddleware`: Computes latency and injects `X-Enterprise-Processing-Time-MS` response headers.
+- `auth_middleware.py`: Validates `X-API-Key` headers against SQLite hashes.
+
+### 5.7 Enterprise REST API Router (`src/api/v1/router.py`)
+Provides REST endpoints:
+- `GET /api/v1/analytics/stats`: Metrics & PII category distribution.
+- `GET /api/v1/audit/logs`: Paginated audit log records.
+- `GET /api/v1/audit/export`: Compliance certificate exporter.
+- `POST /api/v1/batch`: Multi-file parallel batch upload.
+- `POST /api/v1/preview`: Human-in-the-loop (HITL) pre-redaction inspector.
+- `POST /api/v1/keys`: API Key management.
 
 ---
 
-## 6. Core Masking Utilities Engineering Details
+## 6. Frontend Enterprise Workspace Walkthrough
 
-### A. Gemini Exponential Backoff Retry Loop (`gemini_utils.py`)
-Prevents HTTP 429 rate limit failures during heavy processing by doubling wait times (`initial_backoff * 2^attempt`) up to 5 retries.
-
-### B. High-DPI 300 DPI PDF Page Rendering (`pdf_utils.py`)
-PyMuPDF (`fitz`) renders PDF pages at 300 DPI using a `zoom = 300 / 72 = 4.166x` scaling matrix, producing sharp image canvases for OCR word detection.
-
-### C. Advanced Heavy Blurring (`image_utils.py`)
-Combines 10% downsampling (physically destroying text pixels) with upscaling and Gaussian blur, rendering text mathematically un-recoverable.
-
-### D. Dynamic Border Padding (`image_utils.py`)
-Adds a $10\% + 2\text{px}$ dynamic bounding box padding around OCR coordinates to prevent character edge details from peeking out.
+1. **[Interactive Workbench (`/`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/main/Page.tsx)**: Single-file upload workspace with category selectors.
+2. **[Batch Processing (`/batch`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/batch/BatchProcessingPage.tsx)**: Multi-file drag & drop queue.
+3. **[HITL Review Queue (`/preview`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/preview/HITLPreviewWorkbench.tsx)**: Pre-redaction inspector for compliance verification.
+4. **[Audit Ledger (`/audit`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/audit/AuditLogsPage.tsx)**: Searchable audit table with compliance certificate exporter.
+5. **[Analytics Dashboard (`/analytics`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/analytics/AnalyticsDashboard.tsx)**: Visual charts showing throughput, latency, and category breakdown.
 
 ---
 
-## 7. Master Interview Q&A Guide Reference
+## 7. Resilience, Rate Limiting & Collision Avoidance
 
-For an exhaustive **35-question deep dive** into interview scenario questions, system design choices, cloud scaling architecture (Kubernetes, Celery, S3, PostgreSQL), and compliance standards, refer to:
+- **Gemini Exponential Backoff** (`gemini_utils.py`): Doubles sleep time (`2^attempt`) on HTTP 429 errors.
+- **Filename Collision Prevention**: Appends UUID v4 + epoch timestamp (`a1b2c3d4_1719827361_invoice.pdf`).
+- **Levenshtein Safety Threshold**: Requires 85% match ratio ($\ge 0.85$), enforcing 100% exact match for short words ($\le 3$ chars).
+
+---
+
+## 8. DevOps, Security Scanning & Quality Control
+
+- **Gitleaks**: Secrets scanner preventing key leaks in git commits.
+- **Ruff**: High-speed Python linter enforcing PEP 8.
+- **Bandit**: Static security scanner detecting Python vulnerabilities.
+- **Semgrep**: Static analysis checking FastAPI route security.
+- **Verification**: Tested via Pytest, `tsc --noEmit`, and `py_compile`.
+
+---
+
+## 9. Production Cloud Scaling Architecture
+
+To scale to 1,000,000 files/day:
+1. **Kubernetes Cluster**: Deploy FastAPI as stateless Docker pods with Horizontal Pod Autoscaling (HPA).
+2. **Distributed Task Queue**: Replace local job queue with **Celery + Redis / RabbitMQ** workers for GPU video/OCR processing.
+3. **Cloud Object Storage**: Move local files to **AWS S3** with S3 Lifecycle zero-retention policies.
+4. **Database & Caching**: Transition SQLite to **AWS Aurora PostgreSQL** with read-replicas, using Redis for deduplication caching.
+
+---
+
+## 10. Master Interview Q&A Index
+
+For the full **35-question master interview reference**, visit:
 👉 **[Master Interview Q&A Guide (`INTERVIEW_QA.md`)](file:///d:/pii%20masking/INTERVIEW_QA.md)**
