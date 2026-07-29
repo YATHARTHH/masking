@@ -10,12 +10,13 @@ Welcome to the master technical documentation for **PII Shield Enterprise**. Thi
 3. [End-to-End Request Lifecycle & Flowcharts](#3-end-to-end-request-lifecycle--flowcharts)
 4. [Deep-Dive Masking Mechanics by File Format](#4-deep-dive-masking-mechanics-by-file-format)
    - [4.1 Images & PDF Documents](#41-images--pdf-documents)
-   - [4.2 Biometric Face Blurring (YOLOv8)](#42-biometric-face-blurring-yolov8)
-   - [4.3 Audio Processing & Beep Overlays](#43-audio-processing--beep-overlays)
-   - [4.4 High-FPS Parallel Video Pipeline](#44-high-fps-parallel-video-pipeline)
-   - [4.5 Word & PowerPoint XML Processing](#45-word--powerpoint-xml-processing)
-   - [4.6 Spreadsheets (100K+ Row Sampling)](#46-spreadsheets-100k-row-sampling)
-   - [4.7 Plain Text Obfuscation Modes](#47-plain-text-obfuscation-modes)
+   - [4.2 Levenshtein Distance: Where & Why It Is Used](#42-levenshtein-distance-where--why-it-is-used)
+   - [4.3 Biometric Face Blurring (YOLOv8)](#43-biometric-face-blurring-yolov8)
+   - [4.4 Audio Processing & Beep Overlays](#44-audio-processing--beep-overlays)
+   - [4.5 High-FPS Parallel Video Pipeline](#45-high-fps-parallel-video-pipeline)
+   - [4.6 Word & PowerPoint XML Processing](#46-word--powerpoint-xml-processing)
+   - [4.7 Spreadsheets (100K+ Row Sampling)](#47-spreadsheets-100k-row-sampling)
+   - [4.8 Plain Text Obfuscation Modes](#48-plain-text-obfuscation-modes)
 5. [Enterprise Production Infrastructure Code Walkthrough](#5-enterprise-production-infrastructure-code-walkthrough)
    - [5.1 Database Layer (`src/db/database.py`)](#51-database-layer-srcdbdatabasepy)
    - [5.2 AES-256 Security & Encryption (`src/core/security.py`)](#52-aes-256-security--encryption-srccoresecuritypy)
@@ -115,28 +116,40 @@ graph TD
        return cv2.GaussianBlur(pixelated, (max(5, int(w*0.1)|1), max(5, int(h*0.1)|1)), 0)
    ```
 
-### 4.2 Biometric Face Blurring (YOLOv8)
+### 4.2 Levenshtein Distance: Where & Why It Is Used
+- **WHERE IT IS USED**:
+  - **Images (`image_utils.py`)**: Matching visual EasyOCR words against Gemini's detected text list.
+  - **PDF Documents (`pdf_utils.py`)**: Page images generated from PyMuPDF use EasyOCR + Levenshtein fuzzy matching.
+  - **Video Frames (`video_utils.py`)**: Text frame masking uses EasyOCR + Levenshtein string matching.
+  - **PowerPoint Visual Mode (`ppt_utils.py`)**: Slide image renders rely on `process_image` (EasyOCR + Levenshtein).
+- **WHY IT IS USED**:
+  - Visual OCR engines frequently output minor typos or character misrecognitions (e.g. `'John'` vs `'John'`, or `'I23-45-6789'` vs `'123-45-6789'`). Levenshtein fuzzy matching prevents these minor OCR typos from missing redactions.
+- **WHERE IT IS NOT USED**:
+  - **Word (`.docx`) & Plain Text (`.txt`)**: Text is extracted directly from clean digital XML text nodes in memory (`doc.paragraphs`), so exact Python string replacement (`para.text.replace(pii_text, replacement)`) is used.
+  - **Spreadsheets (`.csv`, `.xlsx`)**: Uses exact Pandas dataframe column indexing and vectorized string transformations.
+
+### 4.3 Biometric Face Blurring (YOLOv8)
 Single-pass CNN YOLOv8 (`yolov8n.pt`) detects human faces (`cls == 0`) and applies a heavy $(99, 99)$ Gaussian blur kernel or solid paint box over facial coordinates.
 
-### 4.3 Audio Processing & Beep Overlays (`audio_utils.py`)
+### 4.4 Audio Processing & Beep Overlays (`audio_utils.py`)
 1. Gemini transcribes audio and returns word timestamps (`start_time`, `end_time`).
 2. `pydub` generates a 300 Hz sine-wave tone: `Sine(300).to_audio_segment(duration=duration_ms)`.
 3. Slices audio waveform: `audio[:start_ms] + beep + audio[end_ms:]`.
 
-### 4.4 High-FPS Parallel Video Pipeline (`video_utils.py`)
+### 4.5 High-FPS Parallel Video Pipeline (`video_utils.py`)
 Frame extraction is parallelized across worker threads using `ThreadPoolExecutor`:
 ```python
 with ThreadPoolExecutor(max_workers=4) as executor:
     futures = [executor.submit(process_single_frame, frame) for frame in frames]
 ```
 
-### 4.5 Word & PowerPoint XML Processing (`docx_utils.py`, `ppt_utils.py`)
+### 4.6 Word & PowerPoint XML Processing (`docx_utils.py`, `ppt_utils.py`)
 Parses `python-docx` / `python-pptx` paragraph XML DOM trees, substituting target strings inside text runs while preserving formatting.
 
-### 4.6 Spreadsheets (100K+ Row Sampling) (`csv_utils.py`)
+### 4.7 Spreadsheets (100K+ Row Sampling) (`csv_utils.py`)
 Samples 15 representative rows for Gemini to classify column-level PII schemas, then applies local Pandas vectorized regex masking across all 100,000+ rows instantly.
 
-### 4.7 Plain Text Obfuscation Modes (`text_utils.py`)
+### 4.8 Plain Text Obfuscation Modes (`text_utils.py`)
 - **General**: `[MASKED]`
 - **Named**: `[Full Name]`, `[Credit Card]`
 - **X-Character Mapping**: `XXXX XXXXXX` (length-preserving).
