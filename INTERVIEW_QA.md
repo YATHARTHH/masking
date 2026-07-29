@@ -1,6 +1,6 @@
 # PII Shield Enterprise - Master Interview Q&A Guide
 
-This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **42 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, local/cloud deployment options, and scenario-based interview responses.
+This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **45 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, ML/DL model deep dives, local/cloud deployment options, and scenario-based interview responses.
 
 ---
 
@@ -9,9 +9,9 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 2. [Pillar 2: Technology Stack Justifications (Q5 - Q11)](#pillar-2-technology-stack-justifications)
 3. [Pillar 3: Per-Format Processing Pipelines (Q12 - Q24)](#pillar-3-per-format-processing-pipelines)
 4. [Pillar 4: Enterprise Security & Governance (Q25 - Q30)](#pillar-4-enterprise-security--governance)
-5. [Pillar 5: System Design & Production Scaling (Q31 - Q36)](#pillar-5-system-design--production-scaling)
-6. [Pillar 6: Developer Quality & Operations (Q37 - Q39)](#pillar-6-developer-quality--operations)
-7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q40 - Q42)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
+5. [Pillar 5: System Design & Production Scaling (Q31 - Q38)](#pillar-5-system-design--production-scaling)
+6. [Pillar 6: Developer Quality & Operations (Q40 - Q42)](#pillar-6-developer-quality--operations)
+7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q43 - Q45)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
 
 ---
 
@@ -214,48 +214,182 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 > 3. **Cloud Storage**: Move local disk uploads to **AWS S3 / Google Cloud Storage** with S3 Lifecycle policies for automatic object expiration.
 > 4. **Database & Caching**: Move SQLite to **AWS Aurora PostgreSQL** with read-replicas for audit queries, and use Redis for file hash deduplication caching.
 
-### Q33: "If we set up and deploy this system, what exact services and components are used in both (A) Local Enterprise Deployment and (B) Cloud Production Deployment (AWS / GCP)?"
+### Q33: "Walk me through the Local / On-Premise Deployment Stack for this system."
 > **Answer:**  
-> "Depending on the deployment tier, the system utilizes two distinct service stacks:
-> 
-> #### 🏠 Option A: Local / On-Premise / Edge Enterprise Deployment Stack
-> When deployed locally on edge servers or developer workstations:
-> 1. **Web Gateway & Application Server**: **FastAPI** (ASGI Framework) running under **Uvicorn**, serving the backend REST endpoints (`/upload/`, `/api/v1/...`).
-> 2. **Frontend SPA Server**: **Vite / Node.js** serving the single-page React 19 + TypeScript application.
-> 3. **AI & Vision Engines**:
->    - **Google Gemini 2.0 Flash API**: Multimodal LLM for contextual PII detection.
->    - **YOLOv8 Nano (`yolov8n.pt`)**: Local deep learning CNN for real-time face blurring.
->    - **EasyOCR / PaddleOCR**: Local PyTorch OCR engine for visual word bounding boxes `(x, y, w, h)`.
-> 4. **Database & Storage**:
->    - **SQLite3 Database (`pii_enterprise.db`)**: Embedded ACID database storing audit logs, API keys, and job state.
->    - **Fernet AES-256 Encryption Service**: Cryptographic module securing temporary disk files at rest.
-> 5. **Background & Document Tooling**:
->    - **Async TTL File Shredder (`ttl_cleaner.py`)**: Background `asyncio` task enforcing 1-hour zero-retention file deletion.
->    - **Air-Gapped Offline Fallback Engine (`fallback_engine.py`)**: Local regex matching engine.
->    - **PyMuPDF / OpenCV / Pydub**: Document 300 DPI rendering, image blurring, video frame extraction, and 300 Hz audio beeping.
-> 
-> ---
-> 
-> #### ☁️ Option B: Full Cloud Production Deployment Stack (AWS / GCP Topology)
-> When scaled for enterprise cloud production handling 1,000,000+ files/day:
-> 1. **Compute Orchestration**: Containerized Docker images managed by **Kubernetes (AWS EKS / GCP GKE)** with **Horizontal Pod Autoscaling (HPA)** scaling backend pods based on CPU and request queue depth.
-> 2. **Frontend Delivery**: **AWS CloudFront CDN / Cloudflare** + **AWS S3 Bucket** static web hosting serving the React SPA with global edge caching and SSL termination.
-> 3. **API Gateway & Ingress**: **AWS Application Load Balancer (ALB)** or **NGINX Ingress Controller** with AWS WAF for DDoS protection, rate limiting, and SSL/TLS 1.3 termination.
-> 4. **Distributed Async Worker Queue**: **Celery + Redis / RabbitMQ** workers running on GPU-backed cloud instances (e.g. AWS g4dn) for parallel heavy video rendering and OCR tasks.
-> 5. **Cloud Object Storage & Zero Retention**: **AWS S3 / GCP Cloud Storage** replacing local disk directories, configured with **S3 Lifecycle Expiration Rules** to automatically delete uploaded objects after 1 hour (TTL).
-> 6. **Production Database & Caching**: **AWS Aurora PostgreSQL** (Multi-AZ with read replicas) replacing local SQLite for scalable audit ledger logs, paired with a **Redis Cluster** for API key caching and file hash deduplication.
-> 7. **Observability & Secrets**: **AWS Secrets Manager** for API keys, **Prometheus + Grafana** for real-time GPU/memory metrics, and **AWS CloudWatch / Datadog** for structured JSON log aggregation."
+> "When deployed locally — on a developer workstation, on-premise server, or an air-gapped edge device — the system uses the following stack:
+>
+> #### 🏠 Local / On-Premise / Edge Deployment Stack
+>
+> | Service | Technology | Why We Use It |
+> | :--- | :--- | :--- |
+> | **Web Application Server** | FastAPI + Uvicorn | Uvicorn is a lightning-fast ASGI server. FastAPI is async-native so it handles concurrent file uploads without blocking. |
+> | **Frontend SPA Server** | Vite + Node.js | Vite gives instant HMR during dev. In production, `npm run build` compiles static assets served by any HTTP server. |
+> | **LLM / AI Engine** | Google Gemini 2.0 Flash API | Contextual semantic understanding of PII across text, images, audio — something pure regex cannot do. |
+> | **Face Detection Model** | YOLOv8 Nano (`yolov8n.pt`) | Runs fully locally, single-pass CNN, no cloud dependency, very fast even on CPU. |
+> | **OCR Engine** | EasyOCR (PyTorch) | Produces spatial pixel bounding boxes for every word, enabling coordinate-level image redaction. |
+> | **Database** | SQLite3 (`pii_enterprise.db`) | Zero-configuration, file-based, ACID-compliant, no external server needed. |
+> | **Encryption** | Fernet AES-256 (`cryptography` library) | Ensures any file saved to disk is encrypted at rest. Keys are auto-generated and stored in `.env`. |
+> | **Background TTL Shredder** | Python `asyncio` loop | Continuously watches upload folders and shreds files older than 1 hour, enforcing GDPR zero-retention. |
+> | **Offline Fallback Engine** | Local compiled regex patterns | If Gemini API is unreachable (no internet), this catches standard PII patterns (Email, SSN, Phone, Credit Card, etc.) |
+> | **Document Tools** | PyMuPDF, python-docx, python-pptx, pydub, OpenCV | Each handles one file format family: PDF rendering, Word XML, PPT XML, audio waveforms, and image/video frames. |
 
-### Q34: How do you handle Gemini API Rate Limits (HTTP 429)?
+### Q34: "Walk me through the full AWS Cloud Production Deployment Stack."
+> **Answer:**  
+> "On AWS, we break the system into clearly separated managed services, each solving a specific production concern:
+>
+> #### ☁️ AWS Production Cloud Stack
+>
+> **1. Compute — AWS EKS (Elastic Kubernetes Service)**
+> - **What**: The FastAPI backend runs as Docker containers on Kubernetes pods.
+> - **Why EKS**: Kubernetes auto-scales pods horizontally (HPA) when upload queue depth exceeds thresholds. EKS manages the Kubernetes control plane automatically, removing maintenance overhead.
+> - **GPU Workers**: Heavy tasks (video processing, OCR, YOLOv8 inference) run on dedicated `g4dn.xlarge` GPU worker nodes (NVIDIA T4 GPUs), giving CUDA acceleration.
+>
+> **2. Frontend — AWS S3 + CloudFront CDN**
+> - **What**: The compiled React app (`npm run build` output) is uploaded as static HTML/JS/CSS assets to an S3 bucket configured as a static website.
+> - **Why S3 + CloudFront**: CloudFront caches the static assets at 450+ edge locations globally, so users load the UI in under 50ms regardless of location. S3 provides 99.999999999% (11-nines) durability for static assets.
+>
+> **3. API Gateway & Traffic Control — AWS ALB + WAF**
+> - **What**: AWS Application Load Balancer (ALB) sits in front of the Kubernetes cluster, terminating TLS 1.3, routing `/api/v1/` traffic to backend pods, and distributing load.
+> - **Why ALB + WAF**: AWS WAF blocks DDoS traffic, SQL injection, and rate-limit abusive API callers before they hit your FastAPI app. Much cheaper than absorbing and handling bad traffic inside the app.
+>
+> **4. Task Queue — Celery + Amazon SQS / Redis (ElastiCache)**
+> - **What**: Heavy async processing jobs (multi-page PDFs, long videos) are offloaded from the FastAPI request thread into Celery worker queues backed by Amazon SQS or ElastiCache Redis.
+> - **Why Celery + SQS**: Decouples file upload acceptance from actual processing. A 500-page PDF returns `202 Accepted` in 200ms; the heavy rendering happens asynchronously. SQS is fully managed and handles burst spikes automatically.
+>
+> **5. Object Storage — AWS S3 with Lifecycle Rules**
+> - **What**: Replaces local `uploads/` and `processed/` disk directories. All raw uploaded files and redacted output files go into S3 buckets.
+> - **Why S3 Lifecycle Rules**: S3 Lifecycle Expiration Policy automatically deletes objects older than 1 hour, enforcing GDPR zero-retention at the cloud infrastructure level — far more reliable than a Python background loop.
+>
+> **6. Database — AWS Aurora PostgreSQL (Multi-AZ)**
+> - **What**: Replaces SQLite with a fully managed, distributed PostgreSQL cluster. Stores audit logs, job queue state, and API keys.
+> - **Why Aurora**: Aurora PostgreSQL supports up to 15 read replicas, handles millions of audit log writes per day, and provides automatic failover (Multi-AZ) with 99.99% SLA uptime — impossible with SQLite.
+>
+> **7. Caching — AWS ElastiCache (Redis)**
+> - **What**: Caches API key lookups (to avoid hitting the DB on every request), file SHA-256 hash deduplication checks, and job state polling results.
+> - **Why Redis**: Sub-millisecond in-memory lookups. API key validation on every request would destroy DB performance at scale without a cache.
+>
+> **8. Secrets & Config — AWS Secrets Manager + Parameter Store**
+> - **What**: Stores the Gemini API key, DB credentials, Fernet encryption key, and feature flags.
+> - **Why Secrets Manager**: Never commit secrets to `.env` files in production. Secrets Manager rotates keys automatically and integrates natively with EKS service accounts via IAM Roles for Service Accounts (IRSA).
+>
+> **9. Observability — CloudWatch + Prometheus + Grafana**
+> - **What**: CloudWatch collects container logs and AWS infra metrics. Prometheus scrapes FastAPI app metrics (request count, latency histograms). Grafana dashboards visualize processing throughput, GPU utilization, and error rates.
+> - **Why Prometheus + Grafana**: CloudWatch is great for AWS infra metrics, but Prometheus lets you define custom business-level metrics (e.g. PII_categories_detected_per_minute), which CloudWatch alone cannot do.
+
+---
+
+### Q35: "Walk me through the full GCP Cloud Production Deployment Stack — and how it differs from AWS."
+> **Answer:**  
+> "GCP is a strong alternative, especially if you are already using Gemini API (Google Cloud AI APIs integrate natively). Here is the equivalent GCP stack:
+>
+> #### ☁️ GCP Production Cloud Stack
+>
+> **1. Compute — GCP GKE (Google Kubernetes Engine)**
+> - **What**: Same concept as EKS, but GCP GKE has Autopilot Mode which auto-manages node provisioning — you only pay per pod CPU/memory, not for idle nodes.
+> - **Why GKE over EKS**: GKE Autopilot is cheaper and simpler for teams that don't want to manage node pools. GKE also has native Gemini AI integration and lower network egress costs when calling Vertex AI / Gemini API from within GCP.
+>
+> **2. Frontend — GCS Static Hosting + Cloud CDN**
+> - **What**: React app static assets uploaded to a Google Cloud Storage (GCS) bucket with static website serving enabled, fronted by Cloud CDN.
+> - **Why GCS + Cloud CDN**: Same principle as S3 + CloudFront. Cloud CDN caches static content at Google's global edge PoPs (Points of Presence). Slightly simpler IAM setup than S3 for teams already on GCP.
+>
+> **3. API Gateway & Traffic — Cloud Load Balancing + Cloud Armor**
+> - **What**: GCP Cloud Load Balancing handles TLS termination and distributes API traffic across GKE pods. Cloud Armor is GCP's equivalent of AWS WAF — blocking DDoS and bot traffic.
+> - **Why Cloud Armor**: Integrates directly with GCP Load Balancer without extra configuration overhead. Also supports ML-based adaptive DDoS protection (Adaptive Protection feature).
+>
+> **4. Task Queue — Celery + Google Cloud Pub/Sub or Memorystore Redis**
+> - **What**: Cloud Pub/Sub is GCP's fully managed message broker (equivalent of AWS SQS). Memorystore is managed Redis.
+> - **Why Pub/Sub**: Better suited for very high-volume fan-out messaging and event-driven architectures. Pub/Sub guarantees at-least-once delivery and handles millions of messages per second without provisioning.
+>
+> **5. Object Storage — Google Cloud Storage (GCS) with Object Lifecycle Rules**
+> - **What**: GCS replaces local disk storage. Lifecycle policies auto-delete objects after TTL (e.g., 1 hour).
+> - **Why GCS**: If using Vertex AI / Gemini API on GCP, data transfer between GCS and Gemini API is free within the same region — no egress charges. With AWS S3 + Gemini API calls, you pay for outbound data transfer.
+>
+> **6. Database — Cloud SQL for PostgreSQL or Cloud Spanner**
+> - **What**: Cloud SQL is GCP's managed PostgreSQL (equivalent to Aurora). Cloud Spanner is used for globally distributed, horizontally scalable relational workloads.
+> - **Why Cloud SQL vs Spanner**: For audit logs at moderate scale (< 1B rows), Cloud SQL is sufficient and cheaper. Cloud Spanner is for massive multi-region globally consistent workloads.
+>
+> **7. Secrets — GCP Secret Manager**
+> - **What**: Stores Gemini API key, DB credentials, encryption keys — accessed by GKE pods via Workload Identity.
+> - **Why GCP over AWS Secrets Manager**: GCP Secret Manager has a slightly simpler IAM binding model via Workload Identity, and is better integrated with Vertex AI service accounts natively.
+>
+> **8. Observability — Cloud Monitoring + Cloud Logging + Managed Prometheus**
+> - **What**: Cloud Monitoring (formerly Stackdriver) collects infra metrics. Cloud Logging stores structured JSON logs. GKE natively integrates with Google Cloud Managed Service for Prometheus.
+> - **Why**: One-click integration — no agents to install on GKE nodes. Cloud Logging is automatically fed from container stdout, so your FastAPI JSON logs appear instantly without configuration.
+>
+> #### 🔑 AWS vs GCP: Key Decision Factors
+> | Factor | Choose AWS | Choose GCP |
+> | :--- | :--- | :--- |
+> | **LLM/AI Integration** | Use Bedrock (Claude, Titan) | ✅ Use Gemini API natively — lower latency & cost |
+> | **Kubernetes Management** | EKS (more control) | ✅ GKE Autopilot (simpler, cheaper for small teams) |
+> | **Message Queue** | SQS (simpler) | Pub/Sub (better for high fan-out event streams) |
+> | **Storage Egress Cost** | S3 (higher egress fees) | ✅ GCS (free egress within GCP for AI calls) |
+> | **Market Share** | ✅ Largest ecosystem, more 3rd-party tooling | Growing fast, strong AI-native ecosystem |
+> | **Database** | Aurora PostgreSQL | Cloud SQL / Cloud Spanner |
+
+---
+
+### Q36: "What ML and DL (Machine Learning / Deep Learning) models are used in this system, and how does each one work?"
+> **Answer:**  
+> "The system uses three distinct AI/ML/DL models, each serving a completely different purpose:
+>
+> #### 🧠 Model 1: Google Gemini 2.0 Flash — Large Language Model (LLM / Foundation Model)
+> - **Type**: Transformer-based Large Language Model (LLM) + Multimodal Vision-Language Model (VLM).
+> - **Architecture**: Built on Google DeepMind's Gemini architecture — a decoder-only transformer with a 1M+ token context window and multimodal embeddings for text, image, audio, and video frames.
+> - **What It Does Here**: Receives file content (text, base64 image, or audio bytes) and performs **semantic contextual PII detection**. It understands context — for example, it can tell that the number `345-678-9012` is a phone number in one sentence and a serial number in another sentence. Pure regex cannot do this.
+> - **Why Flash (not Pro)**: Gemini 2.0 Flash is optimized for **speed and cost** — it processes 5x more requests per second at ~10x lower cost than Gemini Pro, while retaining 90%+ of accuracy for structured extraction tasks like PII tagging.
+> - **Training**: Trained by Google on multi-lingual, multimodal web-scale datasets using Reinforcement Learning from Human Feedback (RLHF). We do NOT fine-tune it — we use prompt engineering with structured JSON output format instructions.
+> - **Key Limitation**: Cannot return pixel-level bounding box coordinates for image text (only semantic understanding). This is why we pair it with EasyOCR for spatial localization.
+>
+> #### 👁️ Model 2: YOLOv8 Nano — Real-Time Object Detection CNN (Computer Vision / Deep Learning)
+> - **Type**: Convolutional Neural Network (CNN) — Single-Stage Object Detector.
+> - **Architecture**: YOLOv8 Nano (`yolov8n.pt`) is the smallest variant of the You Only Look Once v8 architecture by Ultralytics. It processes the full image in a **single forward pass** through convolutional layers, outputting bounding boxes `(x, y, w, h)` + class confidence scores in one shot.
+> - **What It Does Here**: Detects human faces in images and video frames. For every detected face bounding box with confidence $\ge 0.5$, we apply a heavy $(99, 99)$ Gaussian blur or solid paint-box to permanently obscure biometric identity.
+> - **Why YOLOv8 over alternatives**:
+>   - **vs OpenCV Haar Cascades**: YOLOv8 is 10x more accurate, handles partial occlusion, rotated faces, and motion blur.
+>   - **vs MediaPipe Face Mesh**: MediaPipe requires landmarks; YOLO provides bounding boxes directly — simpler for blurring.
+>   - **vs AWS Rekognition**: Keeps all biometric processing fully local, no biometric data ever leaves the machine (critical for HIPAA compliance).
+> - **Training**: Trained on COCO dataset (Common Objects in Context) with 80 object classes. The model uses **anchor-free detection heads** and **C2f (Cross Stage Partial with Feature hierarchy fusion)** blocks.
+> - **Runtime**: Runs on CPU via PyTorch. CUDA GPU is supported if `torch` is installed with CUDA — dramatically speeds up video processing.
+>
+> #### 🔤 Model 3: EasyOCR — OCR Neural Network (CRNN — Optical Character Recognition)
+> - **Type**: Deep Learning OCR — Convolutional Recurrent Neural Network (CRNN) with CTC (Connectionist Temporal Classification) decoder.
+> - **Architecture**:
+>   - **Stage 1 — Text Region Detection**: A CRAFT (Character Region Awareness For Text detection) model locates text regions on the image canvas and outputs word bounding boxes `(x_min, y_min, x_max, y_max)`.
+>   - **Stage 2 — Text Recognition**: A CRNN reads each detected text region and converts pixels into character sequences. ResNet CNN extracts visual features, a BiLSTM (Bidirectional LSTM) handles sequential character context, and a CTC decoder maps the sequence to output text.
+> - **What It Does Here**: Given an image, EasyOCR returns a list of `(bounding_box, text_string, confidence_score)` tuples for every word on the canvas. We use the bounding boxes to pinpoint exactly where in the image a PII word physically appears so we can blur that specific pixel region.
+> - **Why EasyOCR over alternatives**:
+>   - **vs Tesseract OCR**: EasyOCR is 15-20% more accurate on curved, low-contrast, or stylized text. Tesseract is legacy C++ software not GPU-acceleratable.
+>   - **vs PaddleOCR**: Roughly equivalent accuracy. EasyOCR has simpler Python API; PaddleOCR is slightly faster. We support both.
+>   - **vs Google Cloud Vision OCR (API)**: Cloud Vision is more accurate but costs ~$1.50 per 1,000 images. EasyOCR is free, local, and processes 200ms/image on CPU.
+> - **Multi-Language**: EasyOCR supports 80+ languages via different model weights (`easyocr.Reader(['en', 'hi', 'ar'])`).
+>
+> #### 🔗 How All 3 Models Work Together (Example: Image with ID Card)
+> ```
+> Step 1 → Gemini 2.0 Flash reads the image and returns:
+>            ["John Smith", "123-45-6789", "john@email.com"]
+>
+> Step 2 → EasyOCR scans the image and returns bounding boxes:
+>            [(box1, "John"), (box2, "Smith"), (box3, "123-45-6789"), ...]
+>
+> Step 3 → Levenshtein fuzzy match pairs Gemini strings with EasyOCR boxes:
+>            "John Smith" → box1 + box2 (similarity ratio 1.0)
+>            "123-45-6789" → box3 (similarity ratio 0.97 — minor OCR typo tolerated)
+>
+> Step 4 → YOLOv8 separately detects face bounding boxes → Gaussian blur applied.
+>
+> Step 5 → All matched text boxes are heavy-blurred at pixel level → Output image saved.
+> ```
+
+### Q39: How do you handle Gemini API Rate Limits (HTTP 429)?
 > **Answer:**  
 > We wrap GenAI API calls in an exponential backoff retry function (`generate_content_with_retry`). If an HTTP 429 or `resource_exhausted` error occurs, the helper sleeps for `initial_backoff * 2^attempt` seconds up to 5 retries before failing.
 
-### Q35: How do you handle False Positives and False Negatives?
+### Q37: How do you handle False Positives and False Negatives?
 > **Answer:**  
 > 1. **Levenshtein Ratio Thresholding**: String similarity must meet or exceed 85% (`ratio >= 0.85`), with strict 100% exact matching enforced for short words ($\le 3$ chars).
 > 2. **Human-in-the-Loop Queue (`/preview`)**: Pre-inspection workbench allows operators to visually review detected entities before triggering destructive masking.
 
-### Q36: Why choose a Monorepo architecture over Polyrepo?
+### Q38: Why choose a Monorepo architecture over Polyrepo?
 > **Answer:**  
 > 1. **Atomic Commits**: Frontend and backend API changes are committed together, eliminating breaking contract mismatches.
 > 2. **Unified Quality Tooling**: Shared pre-commit hooks (Ruff, Biome, Gitleaks, Semgrep) run across both frontend and backend in a single developer workflow.
@@ -264,19 +398,19 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 🛠️ Pillar 6: Developer Quality & Operations
 
-### Q37: What static analysis and security scanning tools are integrated?
+### Q40: What static analysis and security scanning tools are integrated?
 > **Answer:**  
 > - **Gitleaks**: Scans git commits for leaked API keys or secrets.
 > - **Ruff**: High-speed Python linter enforcing PEP 8.
 > - **Bandit**: Static security analyzer detecting insecure Python code patterns (e.g. `eval`, hardcoded passwords).
 > - **Semgrep**: Static analysis checking FastAPI route security.
 
-### Q38: How do you verify build correctness before deployment?
+### Q41: How do you verify build correctness before deployment?
 > **Answer:**  
 > 1. **Backend**: Python syntax and import validation using `python -m py_compile`.
 > 2. **Frontend**: TypeScript type-checking using `tsc --noEmit` and Vite build bundling (`npm run build`).
 
-### Q39: What logging standard is used for troubleshooting?
+### Q42: What logging standard is used for troubleshooting?
 > **Answer:**  
 > We use structured JSON logging with custom trace IDs, capturing timestamps, route names, HTTP status codes, execution latency, and error tracebacks.
 
@@ -284,7 +418,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 💡 Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers
 
-### Q40: Core Technology Matrix
+### Q43: Core Technology Matrix
 | Domain | Technology Selected | Key Function |
 | :--- | :--- | :--- |
 | **Backend API** | FastAPI + Python 3.11 | Async ASGI Web Gateway |
@@ -295,7 +429,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 | **Database** | SQLite3 (`pii_enterprise.db`) | Local Audit Ledger & Job Tracking |
 | **Encryption** | Fernet AES-256 | Storage at Rest Security |
 
-### Q41: Top 10 One-Word Memory Anchors for Interviews
+### Q44: Top 10 One-Word Memory Anchors for Interviews
 1. **FastAPI**: Async ASGI
 2. **Vite**: Instant HMR
 3. **Gemini 2.0**: Multimodal Context
@@ -307,7 +441,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 9. **TTL Cleaner**: Zero Retention Shredding
 10. **Pandas**: Vectorized Schema Sampling
 
-### Q42: Key Metrics to Quote in Interviews
+### Q45: Key Metrics to Quote in Interviews
 - **300 DPI**: High-resolution PyMuPDF page rendering matrix ($300 / 72 = 4.166\times$).
 - **85% Similarity Ratio**: Minimum Levenshtein fuzzy match threshold for OCR word alignment.
 - **10% + 2px**: Dynamic border padding added around OCR bounding boxes to prevent edge leakage.
