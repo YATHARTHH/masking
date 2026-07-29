@@ -28,7 +28,7 @@ Welcome to the master technical documentation for **PII Shield Enterprise**. Thi
 6. [Frontend Enterprise Workspace Walkthrough](#6-frontend-enterprise-workspace-walkthrough)
 7. [Resilience, Rate Limiting & Collision Avoidance](#7-resilience-rate-limiting--collision-avoidance)
 8. [DevOps, Security Scanning & Quality Control](#8-devops-security-scanning--quality-control)
-9. [Production Cloud Scaling Architecture](#9-production-cloud-scaling-architecture)
+9. [Deployment Architectures: Local vs Cloud Production](#9-deployment-architectures-local-vs-cloud-production)
 10. [Master Interview Q&A Index](#10-master-interview-qa-index)
 
 ---
@@ -221,17 +221,22 @@ Provides REST endpoints:
 
 ---
 
-## 9. Production Cloud Scaling Architecture
+## 9. Deployment Architectures: Local vs Cloud Production
 
-To scale to 1,000,000 files/day:
-1. **Kubernetes Cluster**: Deploy FastAPI as stateless Docker pods with Horizontal Pod Autoscaling (HPA).
-2. **Distributed Task Queue**: Replace local job queue with **Celery + Redis / RabbitMQ** workers for GPU video/OCR processing.
-3. **Cloud Object Storage**: Move local files to **AWS S3** with S3 Lifecycle zero-retention policies.
-4. **Database & Caching**: Transition SQLite to **AWS Aurora PostgreSQL** with read-replicas, using Redis for deduplication caching.
+| Infrastructure Domain | Option A: Local Enterprise / Edge Stack | Option B: Cloud Production (AWS / GCP Topology) |
+| :--- | :--- | :--- |
+| **Web Gateway / API** | FastAPI running via Uvicorn locally | Containerized Docker pods on Kubernetes (EKS/GKE) with HPA |
+| **Frontend Delivery** | Node.js / Vite development server | AWS CloudFront CDN / Cloudflare + S3 Static Web Hosting |
+| **API Load Balancer** | Localhost Direct Routing | AWS Application Load Balancer (ALB) + AWS WAF + TLS 1.3 |
+| **Task Queue Processing** | Local `ThreadPoolExecutor` + AsyncIO | **Celery + Redis / RabbitMQ** workers on GPU instances |
+| **Object Storage** | Local Disk (`uploads/`, `processed/`) | **AWS S3 / GCP Storage** with S3 Expiration Rules (TTL) |
+| **Database Ledger** | SQLite3 (`pii_enterprise.db`) | **AWS Aurora PostgreSQL** (Multi-AZ with read replicas) |
+| **Caching & Auth** | Local memory / SQLite lookup | **Redis Cluster** for API key caching & deduplication |
+| **Secrets & Observability**| Local `.env` files + Python logging | **AWS Secrets Manager** + **Prometheus / Grafana** + **CloudWatch** |
 
 ---
 
 ## 10. Master Interview Q&A Index
 
-For the full **35-question master interview reference**, visit:
+For the full **42-question master interview reference**, visit:
 👉 **[Master Interview Q&A Guide (`INTERVIEW_QA.md`)](file:///d:/pii%20masking/INTERVIEW_QA.md)**

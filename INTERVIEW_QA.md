@@ -1,6 +1,6 @@
 # PII Shield Enterprise - Master Interview Q&A Guide
 
-This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **41 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, and scenario-based interview responses.
+This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **42 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, local/cloud deployment options, and scenario-based interview responses.
 
 ---
 
@@ -9,9 +9,9 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 2. [Pillar 2: Technology Stack Justifications (Q5 - Q11)](#pillar-2-technology-stack-justifications)
 3. [Pillar 3: Per-Format Processing Pipelines (Q12 - Q24)](#pillar-3-per-format-processing-pipelines)
 4. [Pillar 4: Enterprise Security & Governance (Q25 - Q30)](#pillar-4-enterprise-security--governance)
-5. [Pillar 5: System Design & Production Scaling (Q31 - Q35)](#pillar-5-system-design--production-scaling)
-6. [Pillar 6: Developer Quality & Operations (Q36 - Q38)](#pillar-6-developer-quality--operations)
-7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q39 - Q41)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
+5. [Pillar 5: System Design & Production Scaling (Q31 - Q36)](#pillar-5-system-design--production-scaling)
+6. [Pillar 6: Developer Quality & Operations (Q37 - Q39)](#pillar-6-developer-quality--operations)
+7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q40 - Q42)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
 
 ---
 
@@ -214,16 +214,48 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 > 3. **Cloud Storage**: Move local disk uploads to **AWS S3 / Google Cloud Storage** with S3 Lifecycle policies for automatic object expiration.
 > 4. **Database & Caching**: Move SQLite to **AWS Aurora PostgreSQL** with read-replicas for audit queries, and use Redis for file hash deduplication caching.
 
-### Q33: How do you handle Gemini API Rate Limits (HTTP 429)?
+### Q33: "If we set up and deploy this system, what exact services and components are used in both (A) Local Enterprise Deployment and (B) Cloud Production Deployment (AWS / GCP)?"
+> **Answer:**  
+> "Depending on the deployment tier, the system utilizes two distinct service stacks:
+> 
+> #### 🏠 Option A: Local / On-Premise / Edge Enterprise Deployment Stack
+> When deployed locally on edge servers or developer workstations:
+> 1. **Web Gateway & Application Server**: **FastAPI** (ASGI Framework) running under **Uvicorn**, serving the backend REST endpoints (`/upload/`, `/api/v1/...`).
+> 2. **Frontend SPA Server**: **Vite / Node.js** serving the single-page React 19 + TypeScript application.
+> 3. **AI & Vision Engines**:
+>    - **Google Gemini 2.0 Flash API**: Multimodal LLM for contextual PII detection.
+>    - **YOLOv8 Nano (`yolov8n.pt`)**: Local deep learning CNN for real-time face blurring.
+>    - **EasyOCR / PaddleOCR**: Local PyTorch OCR engine for visual word bounding boxes `(x, y, w, h)`.
+> 4. **Database & Storage**:
+>    - **SQLite3 Database (`pii_enterprise.db`)**: Embedded ACID database storing audit logs, API keys, and job state.
+>    - **Fernet AES-256 Encryption Service**: Cryptographic module securing temporary disk files at rest.
+> 5. **Background & Document Tooling**:
+>    - **Async TTL File Shredder (`ttl_cleaner.py`)**: Background `asyncio` task enforcing 1-hour zero-retention file deletion.
+>    - **Air-Gapped Offline Fallback Engine (`fallback_engine.py`)**: Local regex matching engine.
+>    - **PyMuPDF / OpenCV / Pydub**: Document 300 DPI rendering, image blurring, video frame extraction, and 300 Hz audio beeping.
+> 
+> ---
+> 
+> #### ☁️ Option B: Full Cloud Production Deployment Stack (AWS / GCP Topology)
+> When scaled for enterprise cloud production handling 1,000,000+ files/day:
+> 1. **Compute Orchestration**: Containerized Docker images managed by **Kubernetes (AWS EKS / GCP GKE)** with **Horizontal Pod Autoscaling (HPA)** scaling backend pods based on CPU and request queue depth.
+> 2. **Frontend Delivery**: **AWS CloudFront CDN / Cloudflare** + **AWS S3 Bucket** static web hosting serving the React SPA with global edge caching and SSL termination.
+> 3. **API Gateway & Ingress**: **AWS Application Load Balancer (ALB)** or **NGINX Ingress Controller** with AWS WAF for DDoS protection, rate limiting, and SSL/TLS 1.3 termination.
+> 4. **Distributed Async Worker Queue**: **Celery + Redis / RabbitMQ** workers running on GPU-backed cloud instances (e.g. AWS g4dn) for parallel heavy video rendering and OCR tasks.
+> 5. **Cloud Object Storage & Zero Retention**: **AWS S3 / GCP Cloud Storage** replacing local disk directories, configured with **S3 Lifecycle Expiration Rules** to automatically delete uploaded objects after 1 hour (TTL).
+> 6. **Production Database & Caching**: **AWS Aurora PostgreSQL** (Multi-AZ with read replicas) replacing local SQLite for scalable audit ledger logs, paired with a **Redis Cluster** for API key caching and file hash deduplication.
+> 7. **Observability & Secrets**: **AWS Secrets Manager** for API keys, **Prometheus + Grafana** for real-time GPU/memory metrics, and **AWS CloudWatch / Datadog** for structured JSON log aggregation."
+
+### Q34: How do you handle Gemini API Rate Limits (HTTP 429)?
 > **Answer:**  
 > We wrap GenAI API calls in an exponential backoff retry function (`generate_content_with_retry`). If an HTTP 429 or `resource_exhausted` error occurs, the helper sleeps for `initial_backoff * 2^attempt` seconds up to 5 retries before failing.
 
-### Q34: How do you handle False Positives and False Negatives?
+### Q35: How do you handle False Positives and False Negatives?
 > **Answer:**  
 > 1. **Levenshtein Ratio Thresholding**: String similarity must meet or exceed 85% (`ratio >= 0.85`), with strict 100% exact matching enforced for short words ($\le 3$ chars).
 > 2. **Human-in-the-Loop Queue (`/preview`)**: Pre-inspection workbench allows operators to visually review detected entities before triggering destructive masking.
 
-### Q35: Why choose a Monorepo architecture over Polyrepo?
+### Q36: Why choose a Monorepo architecture over Polyrepo?
 > **Answer:**  
 > 1. **Atomic Commits**: Frontend and backend API changes are committed together, eliminating breaking contract mismatches.
 > 2. **Unified Quality Tooling**: Shared pre-commit hooks (Ruff, Biome, Gitleaks, Semgrep) run across both frontend and backend in a single developer workflow.
@@ -232,19 +264,19 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 🛠️ Pillar 6: Developer Quality & Operations
 
-### Q36: What static analysis and security scanning tools are integrated?
+### Q37: What static analysis and security scanning tools are integrated?
 > **Answer:**  
 > - **Gitleaks**: Scans git commits for leaked API keys or secrets.
 > - **Ruff**: High-speed Python linter enforcing PEP 8.
 > - **Bandit**: Static security analyzer detecting insecure Python code patterns (e.g. `eval`, hardcoded passwords).
 > - **Semgrep**: Static analysis checking FastAPI route security.
 
-### Q37: How do you verify build correctness before deployment?
+### Q38: How do you verify build correctness before deployment?
 > **Answer:**  
 > 1. **Backend**: Python syntax and import validation using `python -m py_compile`.
 > 2. **Frontend**: TypeScript type-checking using `tsc --noEmit` and Vite build bundling (`npm run build`).
 
-### Q38: What logging standard is used for troubleshooting?
+### Q39: What logging standard is used for troubleshooting?
 > **Answer:**  
 > We use structured JSON logging with custom trace IDs, capturing timestamps, route names, HTTP status codes, execution latency, and error tracebacks.
 
@@ -252,7 +284,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 
 ## 💡 Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers
 
-### Q39: Core Technology Matrix
+### Q40: Core Technology Matrix
 | Domain | Technology Selected | Key Function |
 | :--- | :--- | :--- |
 | **Backend API** | FastAPI + Python 3.11 | Async ASGI Web Gateway |
@@ -263,7 +295,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 | **Database** | SQLite3 (`pii_enterprise.db`) | Local Audit Ledger & Job Tracking |
 | **Encryption** | Fernet AES-256 | Storage at Rest Security |
 
-### Q40: Top 10 One-Word Memory Anchors for Interviews
+### Q41: Top 10 One-Word Memory Anchors for Interviews
 1. **FastAPI**: Async ASGI
 2. **Vite**: Instant HMR
 3. **Gemini 2.0**: Multimodal Context
@@ -275,7 +307,7 @@ This is the ultimate, end-to-end technical reference and interview guide for the
 9. **TTL Cleaner**: Zero Retention Shredding
 10. **Pandas**: Vectorized Schema Sampling
 
-### Q41: Key Metrics to Quote in Interviews
+### Q42: Key Metrics to Quote in Interviews
 - **300 DPI**: High-resolution PyMuPDF page rendering matrix ($300 / 72 = 4.166\times$).
 - **85% Similarity Ratio**: Minimum Levenshtein fuzzy match threshold for OCR word alignment.
 - **10% + 2px**: Dynamic border padding added around OCR bounding boxes to prevent edge leakage.
