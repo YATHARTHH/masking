@@ -1,10 +1,21 @@
-# PII Shield Enterprise - Comprehensive Interview Q&A Guide
+# PII Shield Enterprise - Master Interview Q&A Guide
 
-This guide contains everything you need to confidently answer technical, system design, architectural, and scenario-based interview questions about the **PII Detection & Masking System**.
+This is the ultimate, end-to-end technical reference and interview guide for the **PII Shield Enterprise System**. It covers all **35 deep-dive questions**, system design decisions, technology stack justifications, file-processing pipelines, security architectures, and scenario-based interview responses.
 
 ---
 
-## 🎯 1. Project Overview & Elevator Pitch
+## 📑 Table of Contents
+1. [Pillar 1: Project Overview & Business Value (Q1 - Q4)](#pillar-1-project-overview--business-value)
+2. [Pillar 2: Technology Stack Justifications (Q5 - Q11)](#pillar-2-technology-stack-justifications)
+3. [Pillar 3: Per-Format Processing Pipelines (Q12 - Q18)](#pillar-3-per-format-processing-pipelines)
+4. [Pillar 4: Enterprise Security & Governance (Q19 - Q24)](#pillar-4-enterprise-security--governance)
+5. [Pillar 5: System Design & Production Scaling (Q25 - Q29)](#pillar-5-system-design--production-scaling)
+6. [Pillar 6: Developer Quality & Operations (Q30 - Q32)](#pillar-6-developer-quality--operations)
+7. [Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers (Q33 - Q35)](#pillar-7-quick-reference-cheat-sheet--interview-numbers)
+
+---
+
+## 🎯 Pillar 1: Project Overview & Business Value
 
 ### Q1: Can you explain your project in 60 seconds?
 > **Answer:**  
@@ -14,149 +25,233 @@ This guide contains everything you need to confidently answer technical, system 
 > 
 > On the frontend, we built an interactive dashboard using **React, TypeScript, and Vite** featuring single-file masking, batch processing, a Human-in-the-Loop review queue, a searchable SQLite audit ledger, and automated GDPR/HIPAA compliance report generation. Everything is built with strict privacy controls—including local AES-256 storage encryption at rest and an automated background file shredder."
 
+### Q2: What real-world compliance regulations does this system help solve?
+> **Answer:**  
+> 1. **GDPR (EU General Data Protection Regulation)**: Enforces "Data Minimization" and the "Right to Erasure" (Articles 5 & 17). Our automated TTL shredder and redaction engine ensure sensitive user data is scrubbed before public sharing.
+> 2. **HIPAA (Health Insurance Portability and Accountability Act)**: Requires sanitizing 18 categories of Protected Health Information (PHI) in medical records, patient receipts, and doctor-patient call recordings.
+> 3. **CCPA (California Consumer Privacy Act)**: Gives consumers the right to restrict disclosure of sensitive personal data.
+> 4. **SOC 2 Type II**: Requires immutable logging of data processing activities, fulfilled by our SQLite audit ledger.
+
+### Q3: What is the high-level system architecture?
+> **Answer:**  
+> We use a modern **SPA + Async REST API** architecture:
+> - **Frontend**: React 19 + TypeScript single-page app communicating via HTTP/REST.
+> - **Backend Gateway**: FastAPI app with CORS middleware, Audit logging middleware, and API Key security dependencies.
+> - **AI & Vision Pipeline**: Gemini 2.0 Flash for semantic classification, EasyOCR for spatial coordinates, YOLOv8 for biometric faces.
+> - **Persistence & Storage**: Embedded SQLite database (`pii_enterprise.db`) and AES-256 encrypted local storage with background TTL cleanup.
+
+### Q4: What file format families does the system support?
+> **Answer:**  
+> We support 7 core format families:
+> - **Images**: `.png`, `.jpg`, `.jpeg`, `.gif`
+> - **Documents**: `.pdf`
+> - **Word / Text**: `.docx`, `.txt`
+> - **Presentations**: `.pptx`, `.ppt`
+> - **Tabular Data**: `.csv`, `.xlsx`
+> - **Audio**: `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`
+> - **Video**: `.mp4`, `.mov`, `.avi`
+
 ---
 
-## 🛠️ 2. Technology Stack & Architectural Justifications ("Why did you use...?")
+## 🛠️ Pillar 2: Technology Stack Justifications
 
-### Q2: Why did you choose FastAPI over Flask or Django?
+### Q5: Why did you choose FastAPI over Flask or Django?
 > **Answer:**  
-> 1. **High Asynchronous Latency Performance (ASGI)**: FastAPI is built on Starlette and Pydantic, supporting native `async/await`. This is critical for I/O bound tasks like streaming file uploads, making multi-threaded video frame calls, and querying AI endpoints asynchronously.
-> 2. **Automatic Data Validation & Serialization**: Pydantic models automatically validate incoming request parameters and sanitize output data.
-> 3. **Interactive Documentation Out of the Box**: Generates OpenAPI (Swagger UI) specs automatically at `/docs`, speeding up backend-frontend contract integration.
-> 4. **Lightweight Core**: Unlike Django, which includes heavy ORM/admin boilerplate we didn't need, FastAPI allows us to build a modular, high-throughput microservice.
+> 1. **Asynchronous Performance (ASGI)**: FastAPI is built on Starlette and supports native `async/await`, crucial for handling high concurrency during streaming file uploads and AI API calls.
+> 2. **Automatic Pydantic Validation**: Validates request parameters and schemas automatically at compile/runtime.
+> 3. **Automatic OpenAPI/Swagger Spec**: Generates interactive documentation at `/docs` out-of-the-box.
+> 4. **Lightweight Microservice Footprint**: Unlike Django's heavy ORM boilerplate, FastAPI allows building a modular API gateway.
 
-### Q3: Why React + TypeScript + Vite on the Frontend?
+### Q6: Why React 19 + TypeScript + Vite on the Frontend?
 > **Answer:**  
-> 1. **Vite**: Provides instant Hot Module Replacement (HMR) and ultra-fast build times powered by `esbuild` under the hood (compared to older Webpack configs).
+> 1. **Vite**: Provides instant Hot Module Replacement (HMR) powered by `esbuild` under the hood, speeding up developer iteration.
 > 2. **TypeScript**: Provides compile-time type safety across complex data objects like PII bounding boxes, upload states, and audit log items, eliminating runtime `TypeError` crashes.
-> 3. **React 19**: Clean component-driven architecture allowing us to reuse custom hooks, UI dropdowns, and navigation elements across 5 distinct enterprise pages.
+> 3. **React 19**: Component-driven architecture allowing easy state management across 5 enterprise pages (Workbench, Batch, Preview, Audit, Analytics).
 
-### Q4: Why Gemini 2.0 Flash instead of Traditional Regex or OpenAI GPT-4?
+### Q7: Why Gemini 2.0 Flash over OpenAI GPT-4 or local Llama models?
 > **Answer:**  
-> - **Over Traditional Regex**: Regex fails on ambiguous context (e.g., distinguishing between a random serial number vs. a credit card number, or identifying a person's name vs. a company name). Gemini 2.0 Flash uses deep LLM semantic comprehension.
-> - **Over GPT-4 / Heavy Models**: Gemini 2.0 Flash is significantly faster (lower latency token generation), cost-efficient, supports multimodal inputs (text, image, audio), and offers a 1M+ token context window suitable for long documents.
+> 1. **Semantic Intelligence over Regex**: Regex fails on context (e.g., distinguishing a serial number from a credit card, or a person's name from a business name). Gemini understands context.
+> 2. **Speed & Multimodal Support**: Gemini 2.0 Flash offers low-latency token generation, supports direct image/audio inputs, and provides a 1M+ token context window.
 
-### Q5: Why YOLOv8 for Face Detection instead of OpenCV Haar Cascades?
+### Q8: Why YOLOv8 for Face Detection over OpenCV Haar Cascades?
 > **Answer:**  
-> OpenCV Haar Cascades are outdated, highly sensitive to lighting/angles, and produce high false-positive rates. **YOLOv8 (You Only Look Once)** is a state-of-the-art single-pass convolutional neural network (CNN). It detects faces in real-time with extreme precision, even under severe rotation, motion blur, or partial occlusion in video frames.
+> OpenCV Haar Cascades are outdated, lighting-sensitive, and produce high false-positive rates. **YOLOv8 (You Only Look Once)** is a single-pass convolutional neural network (CNN) that detects human faces in real time with high accuracy, even under motion blur, rotation, or partial occlusion.
 
-### Q6: Why SQLite for local database persistence?
+### Q9: Why combine EasyOCR with Levenshtein Distance for visual text masking?
+> **Answer:**  
+> LLMs like Gemini tell us *what* sensitive text exists in an image, but cannot give exact pixel bounding box coordinates (`x, y, w, h`). We run EasyOCR to extract spatial coordinates of all visual words, then use **Levenshtein Distance fuzzy string matching** to align OCR words with Gemini's detected PII strings.
+
+### Q10: Why SQLite for local database persistence?
 > **Answer:**  
 > SQLite is zero-configuration, serverless, and self-contained. It allows the enterprise edition of this application to run out-of-the-box on any local developer or edge server without requiring external container orchestrations (like PostgreSQL or MySQL), while still guaranteeing ACID transaction compliance for our audit ledger.
 
----
-
-## 🏗️ 3. System Design & Core Architecture
-
-### Q7: How does the system mask PII across different file formats?
+### Q11: Why Fernet AES-256 for local storage encryption?
 > **Answer:**  
-> Different formats require specialized parsing & masking pipelines:
-> 
-> | Format | Detection Engine | Redaction / Masking Execution |
-> | :--- | :--- | :--- |
-> | **PDF / Images** | Gemini + EasyOCR / PaddleOCR | Coordinates (`bbox`) extracted from OCR; soft blur filter or solid paint rectangle drawn onto image canvas via OpenCV/PIL. |
-> | **Word (`.docx`) / Text** | Gemini string matching | XML DOM parsed; exact text nodes replaced with placeholders like `[Full Name]` or `XXXX`. |
-> | **Audio (`.mp3`/`.wav`)** | Gemini Audio Transcription | Word-level timestamps extracted; audio waveform sliced and replaced with a sine-wave beep tone. |
-> | **Video (`.mp4`)** | YOLOv8 + OCR + ThreadPoolExecutor | Video split into frames; parallel worker threads detect and blur faces/text; frames recombined using OpenCV/FFmpeg. |
-
-### Q8: How does Video PII Processing achieve high FPS performance?
-> **Answer:**  
-> Processing video frame-by-frame sequentially in Python is extremely slow (e.g., 30 FPS for 1 minute = 1,800 images).  
-> To solve this, we implemented **parallel thread-pool processing** using Python's `concurrent.futures.ThreadPoolExecutor`. 
-> 1. Frames are read into a memory queue.
-> 2. Multiple CPU/GPU worker threads process batches of frames simultaneously applying YOLOv8 face detection.
-> 3. Processed frames are re-assembled in index order and written back using OpenCV video writer.
-
-### Q9: How do you handle Air-Gapped or Offline environments when the Gemini API is down?
-> **Answer:**  
-> We implemented an **Air-Gapped Hybrid Fallback Engine** (`src/services/fallback_engine.py`).  
-> If the system detects network disconnection or if `OFFLINE_MODE=true` is set, the request seamlessly bypasses Gemini and routes to our local regular expression scanner that detects Emails, SSNs, Phone Numbers, Credit Cards, IP Addresses, and Dates of Birth offline.
-
-### Q10: How does the Automatic File Shredder (TTL Cleaner) work?
-> **Answer:**  
-> In compliance with GDPR's "Right to Erasure" and zero-retention policies, we created an asynchronous background daemon (`src/services/ttl_cleaner.py`).  
-> On FastAPI startup, an `asyncio.create_task()` loop launches. Every 60 seconds, it scans `uploads/` and `processed/` folders, checks file modification timestamps, and permanently deletes any file whose age exceeds `FILE_TTL_SECONDS` (default: 3600s / 1 hour).
+> Fernet guarantees that data encrypted with AES-256 in CBC mode using a 128-bit AES key and HMAC-SHA256 authentication cannot be read or manipulated without the secret key, protecting files at rest on disk.
 
 ---
 
-## 🧪 4. Scenario & Deep-Dive Interview Questions
+## 🎨 Pillar 3: Per-Format Processing Pipelines
 
-### Q11: "What happens if a user uploads a 500-page PDF? Won't that cause memory leaks or API timeouts?"
+### Q12: How does the Image & Visual Document Masking Pipeline work?
 > **Answer:**  
-> "Passing a 500-page PDF in a single synchronous HTTP request would risk request timeouts.  
-> To handle large documents cleanly:
-> 1. We chunk the multi-page PDF into page batches using `pypdf` / `pdf2image`.
-> 2. We use our **Asynchronous Job Queue API** (`/api/v1/jobs`), returning a `202 Accepted` response with a `job_id` immediately.
-> 3. The frontend polls `/api/v1/jobs/{job_id}` to track progress percentages without blocking the main UI thread.
-> 4. Temporary page images are garbage-collected immediately after processing each batch to keep memory utilization under 512MB."
+> 1. **Detection**: Image is passed to Gemini 2.0 Flash to extract a list of target PII strings.
+> 2. **Spatial Localization**: EasyOCR extracts all bounding boxes `(x_min, y_min, x_max, y_max)` and text strings on the canvas.
+> 3. **Fuzzy Matching**: Levenshtein distance compares EasyOCR words to Gemini PII strings (similarity threshold $\ge 0.85$).
+> 4. **Dynamic Padding**: A $10\% + 2\text{px}$ padding is added to box bounds to prevent edge leakage.
+> 5. **Heavy Blurring**: ROI is downsampled to 10% resolution (physically destroying text details), resized back up, and smoothed with a Gaussian blur.
 
-### Q12: "How do you handle False Positives (over-masking) and False Negatives (missing PII)?"
+### Q13: How does high-resolution PDF rendering work?
 > **Answer:**  
-> "We address this at two levels:
-> 1. **Automated Confidence Thresholding**: In OCR and fuzzy matching, we set an adjustable similarity threshold (`similarity_threshold = 0.85`). This prevents non-sensitive words that look slightly similar to a detected string from being mistakenly redacted.
-> 2. **Human-in-the-Loop (HITL) Review Queue**: For high-risk compliance workflows, we built a dedicated pre-redaction inspection page (`/preview`). Operators can view detected PII items and bounding box coordinates prior to permanent masking, allowing manual override or approval."
+> Default PyMuPDF (`fitz`) PDF page rendering exports at 72 DPI, where small text appears pixelated and unreadable to OCR.  
+> We solve this in `pdf_utils.py` by applying a zoom matrix `zoom = 300 / 72 = 4.166x` to render pages at **300 DPI**. This produces razor-sharp image canvas conversions before forwarding each page to `process_image`.
 
-### Q13: "How would you scale this application from 100 files/day to 1,000,000 files/day in production?"
+### Q14: How does Audio PII Masking work?
 > **Answer:**  
-> "To scale to 1M files/day, we would transition from local single-node architecture to a cloud-native microservices topology:
-> 1. **Stateless Backend Scaling**: Containerize the FastAPI backend with Docker and deploy on Kubernetes (EKS/GKE) behind an ALB with Horizontal Pod Autoscaling (HPA) based on CPU/Queue depth.
-> 2. **Distributed Task Queue**: Replace local SQLite job queue with **Celery + Redis / RabbitMQ** workers dedicated to heavy GPU video/OCR processing.
-> 3. **Cloud Object Storage**: Replace local disk storage with AWS S3 / Google Cloud Storage featuring S3 Lifecycle Policies for automatic object deletion (TTL).
-> 4. **Database & Caching**: Replace SQLite with PostgreSQL (Amazon Aurora) with read-replicas for audit trails, and use Redis for file hash deduplication caching."
+> 1. Gemini transcribes the audio file and returns a JSON array of sensitive words along with precise `start_time` and `end_time` timestamps (e.g., `00:01:12` to `00:01:14`).
+> 2. `pydub` loads the audio waveform into memory.
+> 3. `pydub.generators.Sine(300)` generates a 300 Hz sine-wave beep tone.
+> 4. The audio segment between `start_ms` and `end_ms` is sliced out and replaced with the generated beep tone.
 
-### Q14: "How do you guarantee security and prevent data leaks?"
+### Q15: How does Video PII Masking achieve high FPS performance?
 > **Answer:**  
-> 1. **Data at Rest**: Local files are encrypted using AES-256 Fernet encryption (`security.py`).
-> 2. **Data in Transit**: Enforced TLS/HTTPS encryption on all client-server communication.
-> 3. **Zero Secrets in Code**: Environment secrets managed strictly via `.env` files and environment variables, with pre-commit `Gitleaks` hooks actively scanning git commits.
-> 4. **Audit Ledger Integrity**: Every processing action generates a cryptographic SHA-256 file fingerprint stored in an immutable audit ledger.
+> Sequential frame processing in Python is too slow (e.g., 30 FPS for 1 minute = 1,800 frames).  
+> We implemented **parallel thread-pool processing** using Python's `concurrent.futures.ThreadPoolExecutor`:
+> 1. OpenCV `VideoCapture` streams frames into an indexed queue.
+> 2. Worker threads process batches of frames concurrently running YOLOv8 face detection and OCR frame masking.
+> 3. Processed frames are re-assembled in order and re-encoded using OpenCV `VideoWriter` and FFmpeg.
 
-### Q15: "How do you handle CSV/Excel files with 100,000 rows without exceeding LLM token limits?"
+### Q16: How are Microsoft Word (`.docx`) and PowerPoint (`.pptx`) documents masked?
 > **Answer:**  
-> "Sending 100,000 rows to Gemini would exceed context windows and cost thousands of dollars. Instead, we use a **Schema Inspection & Sampling** technique:
-> 1. We extract column headers and a random sample of 10-20 representative data rows using Pandas.
-> 2. We pass only the sample to Gemini to classify column-level PII types (e.g. Column 3 = SSN).
-> 3. Once column mapping is established, we apply Pandas vectorized regex transformations across all 100,000 rows locally in milliseconds with zero LLM API overhead."
+> - **Word (`.docx`)**: We use `python-docx` to iterate through document paragraph XML nodes and table cells. Matched PII text strings are replaced directly in the text node elements while preserving styling.
+> - **PowerPoint (`.pptx`)**: We use `python-pptx` to iterate across slides, shape frames, and text frames, substituting matched strings paragraph by paragraph.
 
-### Q16: "What is the difference between OCR Text Extraction and Gemini Vision Detection?"
+### Q17: How do you scale CSV / Excel spreadsheet masking for 100,000+ rows?
 > **Answer:**  
-> - **Gemini Vision**: High-level semantic intelligence. Understands *what* the text means in context (e.g., recognizing that "John Doe" next to "Patient Name" is a PII item). However, Gemini does not return exact pixel bounding box coordinates (`x, y, w, h`).
-> - **OCR Engine (EasyOCR)**: Low-level spatial positioning. Returns precise bounding boxes for every word on the canvas, but lacks semantic understanding.
-> - **Hybrid Fusion**: We combine both! Gemini identifies the target string values, and EasyOCR locates their exact pixel coordinates on the image canvas.
+> Passing 100,000 rows to Gemini would exceed LLM token limits and cost thousands of dollars.  
+> We use a **Schema Sampling Technique**:
+> 1. Pandas loads the dataframe and extracts column headers + a random 15-row sample.
+> 2. Gemini inspects only the 15-row sample to identify column-level PII mapping (e.g. Column B = Email).
+> 3. Pandas applies vectorized local regex transformations across all 100,000 rows in milliseconds with zero LLM API cost.
 
-### Q17: "How do you prevent Levenshtein distance fuzzy matching from blurring wrong words?"
+### Q18: What text redaction modes are supported for documents?
 > **Answer:**  
-> "Fuzzy matching can cause false positives if two short words share similar letters (e.g., 'Cat' vs 'Bat'). We implement two safety controls:
-> 1. **Length-Weighted Ratio**: We require a minimum similarity ratio of 85% (`ratio >= 0.85`), but scale strictness based on string length (strings shorter than 4 characters require 100% exact match).
-> 2. **Spatial Bounding Box Padding**: Matches are verified against word boundaries so partial substrings don't trigger accidental redaction of adjacent text."
-
-### Q18: "Why did you choose a Monorepo structure instead of Polyrepo?"
-> **Answer:**  
-> 1. **Single Source of Truth**: Backend API routes and frontend client interfaces evolve together in atomic commits, eliminating cross-repo version drift.
-> 2. **Unified Developer Experience**: Developers can start both services locally with a single script and run unified pre-commit security scans (Ruff, Biome, Gitleaks) across both codebases simultaneously.
-
-### Q19: "What happens if two users upload files with the exact same filename at the exact same time?"
-> **Answer:**  
-> "To prevent race conditions or file overwrites on disk, incoming files are prefixed with a unique UUID v4 and high-precision epoch timestamp (e.g., `uploads/a1b2c3d4_1719827361_invoice.pdf`). The original filename is preserved strictly in the audit metadata table."
-
-### Q20: "How do you test this system for reliability and performance?"
-> **Answer:**  
-> 1. **Unit Testing**: Pytest suites covering document extraction parsing routines.
-> 2. **Static Security Analysis**: `Bandit` scanning for Python vulnerabilities and `Semgrep` checking API endpoints.
-> 3. **Load Verification**: Benchmark testing endpoints under concurrent load to measure thread-pool latency and memory consumption.
+> 1. **General Replacement**: Replaces sensitive words with `[MASKED]`.
+> 2. **Named Replacement**: Replaces words with category labels like `[Full Name]` or `[Credit Card]`.
+> 3. **X-Character Mapping**: Replaces each character with `X` (e.g., "John" $\rightarrow$ "XXXX") to preserve line length.
 
 ---
 
-## 💡 5. Quick Reference Cheat Sheet
+## 🔒 Pillar 4: Enterprise Security & Governance
 
-| Question Concept | Keyword Answer to Remember |
-| :--- | :--- |
-| **Backend Framework** | FastAPI (Async ASGI, Pydantic, OpenAPI) |
-| **Frontend Framework** | React + TypeScript + Vite (Type Safety, Instant HMR) |
-| **Text & Audio AI Engine** | Google Gemini 2.0 Flash (Multimodal, Low Latency, Large Context Window) |
-| **Computer Vision Engine** | YOLOv8 (Single-pass CNN real-time face detection) |
-| **Local Persistence** | SQLite (Zero-config ACID embedded storage) |
-| **Encryption Standard** | AES-256 Fernet Stream Encryption |
-| **File Cleanup Daemon** | AsyncIO TTL Cleaner Loop (GDPR Zero Retention) |
-| **Tabular Data Scaling** | Pandas Column Sampling + Vectorized Local Masking |
-| **Compliance Support** | GDPR, HIPAA, SOC 2 Type II |
+### Q19: How does the Air-Gapped Offline Fallback Engine work?
+> **Answer:**  
+> Located in `src/services/fallback_engine.py`. If Gemini API fails or if `OFFLINE_MODE=true` is set, requests route to a local Python regex scanner containing compiled patterns for Email, Phone Numbers, SSNs, Credit Cards, IP Addresses, and Dates of Birth, allowing complete air-gapped operation.
+
+### Q20: How does the Automatic File Shredder (TTL Cleaner) enforce zero-retention?
+> **Answer:**  
+> Located in `src/services/ttl_cleaner.py`. On server startup, an async background task (`asyncio.create_task`) is spawned. Every 60 seconds, it checks file modification times in `uploads/` and `processed/` folders, permanently deleting any file older than `FILE_TTL_SECONDS` (default: 3600s / 1 hour).
+
+### Q21: How does the Audit Ledger & Compliance Exporter work?
+> **Answer:**  
+> Every request automatically logs `job_id`, `timestamp`, `filename`, `file_hash_sha256`, `pii_categories`, `masking_type`, and `processing_time_ms` into SQLite.  
+> The endpoint `GET /api/v1/audit/export` reads this ledger and uses `compliance_reporter.py` to generate downloadable HTML/PDF audit verification certificates for GDPR/HIPAA compliance officers.
+
+### Q22: How is API Key Authentication handled?
+> **Answer:**  
+> API keys are passed in the `X-API-Key` request header. `auth_middleware.py` hashes the incoming key using SHA-256 and queries the `api_keys` SQLite table to verify active status and role permissions before allowing request execution.
+
+### Q23: How do middleware layers enhance security and tracing?
+> **Answer:**  
+> `AuditMiddleware` intercepts all HTTP traffic to compute processing latency and inject enterprise security headers (`X-Enterprise-Processing-Time-MS`, `X-Enterprise-Security-Level: AES-256-Local`) into HTTP responses.
+
+### Q24: How do you prevent file collisions when multiple users upload files with the same name?
+> **Answer:**  
+> Incoming files are renamed on disk with a UUID v4 prefix and epoch timestamp (e.g., `uploads/a1b2c3d4_1719827361_invoice.pdf`). The original filename is stored safely in metadata.
+
+---
+
+## 🚀 Pillar 5: System Design & Production Scaling
+
+### Q25: "What happens if a user uploads a 500-page PDF?"
+> **Answer:**  
+> Processing 500 pages synchronously risks HTTP timeouts. We handle large files asynchronously:
+> 1. Document is split into page batches using `pypdf`.
+> 2. Request is submitted to `/api/v1/jobs`, returning a `202 Accepted` response with a `job_id` immediately.
+> 3. Frontend polls `/api/v1/jobs/{job_id}` for progress updates.
+> 4. Temporary page images are garbage-collected after each batch to keep memory utilization under 512MB.
+
+### Q26: "How would you scale this system to 1,000,000 files/day in production?"
+> **Answer:**  
+> 1. **Stateless Kubernetes Cluster**: Deploy FastAPI backend as stateless Docker pods on Kubernetes with Horizontal Pod Autoscaling (HPA).
+> 2. **Distributed Task Queue**: Replace local job queue with **Celery + Redis / RabbitMQ** workers dedicated to heavy GPU video/OCR processing.
+> 3. **Cloud Storage**: Move local disk uploads to **AWS S3 / Google Cloud Storage** with S3 Lifecycle policies for automatic object expiration.
+> 4. **Database & Caching**: Move SQLite to **AWS Aurora PostgreSQL** with read-replicas for audit queries, and use Redis for file hash deduplication caching.
+
+### Q27: How do you handle Gemini API Rate Limits (HTTP 429)?
+> **Answer:**  
+> We wrap GenAI API calls in an exponential backoff retry function (`generate_content_with_retry`). If an HTTP 429 or `resource_exhausted` error occurs, the helper sleeps for `initial_backoff * 2^attempt` seconds up to 5 retries before failing.
+
+### Q28: How do you handle False Positives and False Negatives?
+> **Answer:**  
+> 1. **Levenshtein Ratio Thresholding**: String similarity must meet or exceed 85% (`ratio >= 0.85`), with strict 100% exact matching enforced for short words ($\le 3$ chars).
+> 2. **Human-in-the-Loop Queue (`/preview`)**: Pre-inspection workbench allows operators to visually review detected entities before triggering destructive masking.
+
+### Q29: Why choose a Monorepo architecture over Polyrepo?
+> **Answer:**  
+> 1. **Atomic Commits**: Frontend and backend API changes are committed together, eliminating breaking contract mismatches.
+> 2. **Unified Quality Tooling**: Shared pre-commit hooks (Ruff, Biome, Gitleaks, Semgrep) run across both frontend and backend in a single developer workflow.
+
+---
+
+## 🛠️ Pillar 6: Developer Quality & Operations
+
+### Q30: What static analysis and security scanning tools are integrated?
+> **Answer:**  
+> - **Gitleaks**: Scans git commits for leaked API keys or secrets.
+> - **Ruff**: High-speed Python linter enforcing PEP 8 style standards.
+> - **Bandit**: Static security analyzer detecting insecure Python code patterns (e.g. `eval`, hardcoded passwords).
+> - **Semgrep**: Static analysis checking FastAPI route security.
+
+### Q31: How do you verify build correctness before deployment?
+> **Answer:**  
+> 1. **Backend**: Python syntax and import validation using `python -m py_compile`.
+> 2. **Frontend**: TypeScript type-checking using `tsc --noEmit` and Vite build bundling (`npm run build`).
+
+### Q32: What logging standard is used for troubleshooting?
+> **Answer:**  
+> We use structured JSON logging with custom trace IDs, capturing timestamps, route names, HTTP status codes, execution latency, and error tracebacks.
+
+---
+
+## 💡 Pillar 7: Quick-Reference Cheat Sheet & Interview Numbers
+
+### Q33: Core Technology Matrix
+| Domain | Technology Selected | Key Function |
+| :--- | :--- | :--- |
+| **Backend API** | FastAPI + Python 3.11 | Async ASGI Web Gateway |
+| **Frontend UI** | React 19 + TypeScript + Vite | Enterprise Dashboard SPA |
+| **AI LLM Engine** | Google Gemini 2.0 Flash | Multimodal Contextual PII Detection |
+| **Computer Vision** | YOLOv8 Nano | Real-Time Biometric Face Blurring |
+| **OCR Engine** | EasyOCR / PaddleOCR | Spatial Word Bounding Box Extraction |
+| **Database** | SQLite3 (`pii_enterprise.db`) | Local Audit Ledger & Job Tracking |
+| **Encryption** | Fernet AES-256 | Storage at Rest Security |
+
+### Q34: Top 10 One-Word Memory Anchors for Interviews
+1. **FastAPI**: Async ASGI
+2. **Vite**: Instant HMR
+3. **Gemini 2.0**: Multimodal Context
+4. **YOLOv8**: Single-Pass CNN
+5. **EasyOCR**: Bounding Box Localization
+6. **Levenshtein**: Fuzzy String Matching
+7. **SQLite**: Zero-Config Persistence
+8. **Fernet**: AES-256 Storage Security
+9. **TTL Cleaner**: Zero Retention Shredding
+10. **Pandas**: Vectorized Schema Sampling
+
+### Q35: Key Metrics to Quote in Interviews
+- **300 DPI**: High-resolution PyMuPDF page rendering matrix ($300 / 72 = 4.166\times$).
+- **85% Similarity Ratio**: Minimum Levenshtein fuzzy match threshold for OCR word alignment.
+- **10% + 2px**: Dynamic border padding added around OCR bounding boxes to prevent edge leakage.
+- **3600 Seconds**: Default TTL age threshold before background file shredding.
+- **200 ms**: Average single-image processing latency.

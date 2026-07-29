@@ -126,7 +126,7 @@ def generate_content_with_retry(client: Client, model: str, contents, **kwargs):
                 if attempt == max_retries - 1:
                     raise e
                 time.sleep(backoff)
-                backoff *= 2  # Double the wait time for next retry
+                backoff *= 2  # Double wait time for next retry
             else:
                 raise e
 ```
@@ -186,32 +186,16 @@ def heavy_blur_roi(roi):
 
 ---
 
-## 5. File-by-File Walkthrough
+## 5. End-to-End Interview Preparation
 
-### 1. [main.py](file:///d:/pii%20masking/pii-masking-backend-main/src/main.py)
-Backend application entry point. Initializes SQLite DB tables (`init_db()`), starts the async background TTL cleaner task, mounts middleware & `/api/v1` router, and provides backward-compatible `/upload/` and `/healthcheck` endpoints.
+For an exhaustive 35-question deep dive into every scenario, tech choice, scaling architecture, and compliance standard, refer to the root guide:
+👉 **[Master Interview Q&A Guide (`INTERVIEW_QA.md`)](file:///d:/pii%20masking/INTERVIEW_QA.md)**
 
-### 2. [src/api/v1/router.py](file:///d:/pii%20masking/pii-masking-backend-main/src/api/v1/router.py)
-Enterprise REST API router providing endpoints for `/analytics/stats`, `/audit/logs`, `/audit/export`, `/batch`, `/preview`, and `/keys`.
-
-### 3. [src/core/config.py](file:///d:/pii%20masking/pii-masking-backend-main/src/core/config.py) & [security.py](file:///d:/pii%20masking/pii-masking-backend-main/src/core/security.py)
-Manages enterprise settings (`ENABLE_AUTH`, `FILE_TTL_SECONDS`), SHA-256 hashing, AES-256 Fernet stream encryption, and API key verification.
-
-### 4. [src/db/database.py](file:///d:/pii%20masking/pii-masking-backend-main/src/db/database.py)
-SQLite database manager maintaining `audit_logs`, `api_keys`, and `job_queue` tables.
-
-### 5. [src/services/fallback_engine.py](file:///d:/pii%20masking/pii-masking-backend-main/src/services/fallback_engine.py)
-Local air-gapped regex scanner for offline PII detection when cloud LLM APIs are unreachable.
-
-### 6. [src/services/compliance_reporter.py](file:///d:/pii%20masking/pii-masking-backend-main/src/services/compliance_reporter.py)
-Generates downloadable HTML/PDF compliance verification certificates for GDPR/HIPAA audits.
-
----
-
-## 6. Frontend Pages Guide (`pii-masking-frontend-master`)
-
-1. **[Interactive Workbench (`/`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/main/Page.tsx)**: Main single-file processing dashboard with live upload, category multi-select, and redaction controls.
-2. **[Batch Processing (`/batch`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/batch/BatchProcessingPage.tsx)**: Multi-file queue for parallel document sanitization.
-3. **[HITL Review Workbench (`/preview`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/preview/HITLPreviewWorkbench.tsx)**: Pre-redaction inspection view for compliance officers.
-4. **[Audit Ledger (`/audit`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/audit/AuditLogsPage.tsx)**: Searchable verification log table with compliance certificate exporter.
-5. **[Analytics & Compliance (`/analytics`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/analytics/AnalyticsDashboard.tsx)**: Real-time charts, metrics, latency stats, and engine health diagnostics.
+### Key Topics Covered in Master Interview Guide:
+- **Pillar 1**: Project Overview & Regulations (GDPR, HIPAA, CCPA, SOC 2)
+- **Pillar 2**: Tech Stack Choices (FastAPI, React+Vite, Gemini 2.0, YOLOv8, EasyOCR, SQLite, Fernet AES-256)
+- **Pillar 3**: Per-Format Pipelines (Images, PDFs 300 DPI, Audio `pydub` beeping, Parallel Video Thread Pools, Word/PPT XML, 100K-row CSV sampling)
+- **Pillar 4**: Enterprise Security (Air-Gapped Offline Fallback, Async TTL Cleaner, Audit Exporter, API Keys)
+- **Pillar 5**: Production System Design (500-page PDF Async Queue, Scaling to 1M files/day on K8s/Celery/S3, Levenshtein matching, Monorepo vs Polyrepo)
+- **Pillar 6**: Quality & Operations (Gitleaks, Ruff, Bandit, Semgrep, Pytest)
+- **Pillar 7**: Top 10 Memory Anchors & Key Interview Numbers (300 DPI, 85% ratio, $10\%+2\text{px}$ padding, 3600s TTL)
