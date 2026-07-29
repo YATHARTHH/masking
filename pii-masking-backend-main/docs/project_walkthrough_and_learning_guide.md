@@ -1,6 +1,6 @@
-# PII Masking & Redaction System: Developer's Guide
+# PII Masking & Redaction System: Enterprise Developer's Guide
 
-Welcome to the comprehensive technical documentation for the **PII Masking & Redaction System**. This guide is designed to take you from a high-level conceptual understanding of the project to an advanced code-level analysis.
+Welcome to the comprehensive technical documentation for the **PII Shield Enterprise System**. This guide is designed to take you from a high-level conceptual understanding of the project to an advanced code-level and architectural analysis.
 
 ---
 
@@ -9,78 +9,99 @@ Welcome to the comprehensive technical documentation for the **PII Masking & Red
 ### What is PII?
 **Personally Identifiable Information (PII)** is any data that can be used to distinguish or trace an individual's identity. Examples include:
 *   **Direct Identifiers:** Names, contact numbers, email addresses.
-*   **Indirect Identifiers:** Aadhaar card/SSN numbers, PAN card numbers, bank account numbers, physical addresses.
+*   **Indirect Identifiers:** SSN / Aadhaar numbers, PAN card numbers, bank account numbers, IP addresses, physical addresses.
 
 ### What is Masking/Redaction?
-Masking (or redacting) is the process of obscuring or replacing sensitive data within a file to protect user privacy before sharing or storing it. Our system supports three masking modes:
-1.  **Blurring:** Applying visual filters to images/videos to render names, faces, or IDs unreadable.
-2.  **Replacement:** Replacing sensitive text with generic tags like `[MASKED]`.
-3.  **Named Replacement:** Replacing sensitive text with its category label, e.g., replacing "Yatharth" with `[Full Name]`.
+Masking (or redacting) is the process of obscuring or replacing sensitive data within a file to protect user privacy before sharing or storing it. Our system supports multiple redaction modes:
+1.  **Soft Blurring:** Applying pixelation + Gaussian filters to images/videos to render text and faces mathematically unreadable.
+2.  **Solid Paint BBox:** Overlaying opaque solid rectangles over sensitive areas.
+3.  **General Replacement:** Replacing sensitive text with generic placeholders like `[MASKED]`.
+4.  **Named Replacement:** Replacing sensitive text with its category label, e.g., replacing "Yatharth" with `[Full Name]`.
+5.  **X-Character Mapping:** Preserving character length while redacting (e.g., replacing names with `XXXXXX`).
+6.  **Audio Beeping:** Overlaying a sine-wave frequency tone on audio timestamps containing sensitive words.
 
 ---
 
-## 2. System Architecture
+## 2. Enterprise System Architecture
 
-The project consists of a modern **Single Page Application (SPA)** frontend communicating with a high-performance **REST API** backend.
+The project consists of a modern **React + TypeScript SPA frontend** communicating with a high-performance **FastAPI REST API backend**, backed by an embedded **SQLite Database**, **AES-256 Storage Encryption**, **Async TTL Shredding Daemon**, and an **Air-Gapped Local Fallback Engine**.
 
 ```mermaid
 graph TD
-    A[React/Vite Frontend Client] -- 1. Uploads File + Parameters --> B[FastAPI Backend Server]
-    B -- 2. Parse File & Convert to Images if PDF/Video/PPT --> C[OCR & Deep Learning Pipeline]
-    C -- 3. Extract Text Bounding Boxes --> D[EasyOCR & YOLOv8 Models]
-    B -- 4. Send Content for semantic PII classification --> E[Gemini 2.5 Flash API]
-    E -- 5. Return JSON of detected PII types & text --> B
-    B -- 6. Filter PII by User selection & apply heavy blur / replacement --> C
-    C -- 7. Save file and convert back to base64 --> B
-    B -- 8. Return 200 OK with Base64 payload --> A
+    A[React/Vite SPA Client] -- 1. API Request / Upload --> B[FastAPI Web Server]
+    B -- 2. Intercept Request --> M[Audit & Security Middleware]
+    
+    subgraph Enterprise Backend Core
+        B -- 3a. Online AI Detection --> E[Google Gemini 2.0 Flash API]
+        B -- 3b. Air-Gapped Fallback --> F[Local Offline Regex Engine]
+        B -- 4. Computer Vision / OCR --> D[EasyOCR & YOLOv8 Models]
+        B -- 5. Log Action --> DB[(Local SQLite DB: pii_enterprise.db)]
+        B -- 6. Store Encrypted File --> S[AES-256 Encrypted Disk Storage]
+        B -- 7. Auto Shred File after 1 hr --> T[Background TTL Cleaner Loop]
+    end
+
+    B -- 8. Return Base64 & Download Link --> A
 ```
 
-### Technology Stack
-*   **Frontend:** React, TypeScript, TailwindCSS, Vite.
-*   **Backend:** FastAPI (Python), Uvicorn (ASGI web server).
+### Technology Stack & Architecture
+*   **Frontend:** React 19, TypeScript 5.9, TailwindCSS, Vite.
+*   **Backend Framework:** FastAPI (Python 3.11+), Uvicorn (ASGI web server).
+*   **Database & Persistence:** SQLite3 (Local file-based DB `pii_enterprise.db`).
+*   **Security & Encryption:** Cryptography (Fernet AES-256 stream encryption), SHA-256 Hashing, API Key headers.
 *   **AI & Computer Vision:**
-    *   **Google Gemini 2.5 Flash:** Cloud LLM used for multi-modal semantic detection of PII.
-    *   **YOLOv8 Nano:** Local lightweight deep learning model used for real-time face detection.
-    *   **EasyOCR:** Local OCR engine used to locate coordinates of words on page images.
-    *   **OpenCV (cv2):** Used for advanced image manipulation and rendering the visual blur overlays.
+    *   **Google Gemini 2.0 Flash:** Multimodal LLM for context-aware semantic PII detection.
+    *   **YOLOv8 Nano:** Real-time deep learning single-pass CNN model for face detection.
+    *   **EasyOCR / PaddleOCR:** Local OCR engines for word bounding box localization (`x, y, w, h`).
+    *   **OpenCV (`cv2`):** High-speed image and video frame manipulation.
 
 ---
 
 ## 3. Step-by-Step Processing Pipeline
 
-Every file uploaded to the `/upload/` endpoint follows this sequential lifecycle:
+Every file uploaded to `/upload/` or `/api/v1/batch` follows this enterprise lifecycle:
 
 ```mermaid
 sequenceDiagram
-    participant User as Frontend User
+    participant User as Client App / Frontend
     participant API as FastAPI Backend
-    participant Gemini as Gemini 2.5 API
-    participant Local as OCR / YOLO (Local)
+    participant Audit as SQLite Audit Ledger
+    participant Gemini as Gemini 2.0 API
+    participant Fallback as Offline Regex Engine
+    participant Local as EasyOCR & YOLOv8
 
-    User->>API: Upload File (e.g. PDF) + Categories + Masking Mode
+    User->>API: Upload File + Categories + Masking Mode
     rect rgb(240, 240, 250)
-        note over API: File Pre-processing
-        API->>API: Save uploaded file to uploads/
-        API->>API: If PDF, render pages as high-resolution images (300 DPI)
+        note over API: File Pre-Processing & Security
+        API->>API: Compute SHA-256 file fingerprint
+        API->>API: Save to uploads/ with AES-256 Encryption
+        API->>API: If PDF/Video, extract pages/frames
     end
     
     rect rgb(250, 240, 240)
-        note over API, Gemini: AI PII Detection
-        API->>Gemini: Send file content / image + PII prompts
-        Gemini-->>API: Return JSON List (PII values, types, columns)
+        note over API, Gemini: AI / Fallback Detection
+        alt Gemini API Online
+            API->>Gemini: Send document/audio with PII prompt
+            Gemini-->>API: Return JSON List (PII strings & types)
+        else Offline / API Error
+            API->>Fallback: Scan text using local regex patterns
+            Fallback-->>API: Return offline detected PII matches
+        end
     end
 
     rect rgb(240, 250, 240)
-        note over API, Local: Localization & Redaction
-        API->>API: Filter PII types to keep only user-selected categories
-        API->>Local: Scan image with EasyOCR to find word positions (x, y coordinates)
-        API->>Local: (Optional) Scan image with YOLOv8 to find face coordinates
-        API->>API: Fuzzy match OCR words with Gemini PII using Levenshtein distance
-        API->>API: Apply dynamic padding + heavy blur / beep overlay / string replace
+        note over API, Local: Localization & Masking
+        API->>Local: Scan page image with EasyOCR to locate (x, y) coordinates
+        API->>Local: (Optional) Scan image with YOLOv8 to locate faces
+        API->>API: Match OCR words with PII strings using Levenshtein distance
+        API->>API: Apply dynamic padding + heavy pixelated blur / paint box / beep
     end
 
-    API->>API: Save redacted file to processed/ & encode to base64
-    API-->>User: Return 200 OK JSON with Base64 string for direct download
+    rect rgb(250, 250, 240)
+        note over API, Audit: Persistence & Compliance
+        API->>API: Save redacted file to processed/
+        API->>Audit: Record job_id, SHA-256, latency & categories in SQLite
+        API-->>User: Return 200 OK with Base64 payload & Download URL
+    end
 ```
 
 ---
@@ -88,9 +109,8 @@ sequenceDiagram
 ## 4. Key Engineering Implementations
 
 ### A. Gemini Rate-Limit Handling (Exponential Backoff)
-Free-tier Gemini API keys are restricted to low Rate Limits (e.g., 15 RPM). To prevent processing failures on multi-page PDFs or videos, we wrap all Gemini calls in an exponential backoff retry loop.
+Free-tier Gemini API keys are restricted to low Rate Limits (e.g., 15 RPM). To prevent processing failures on multi-page PDFs or videos, we wrap all Gemini calls in an exponential backoff retry loop in [gemini_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/gemini_utils.py#L4-L32):
 
-Located in [gemini_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/gemini_utils.py#L4-L32):
 ```python
 def generate_content_with_retry(client: Client, model: str, contents, **kwargs):
     max_retries = kwargs.pop('max_retries', 5)
@@ -106,63 +126,62 @@ def generate_content_with_retry(client: Client, model: str, contents, **kwargs):
                 if attempt == max_retries - 1:
                     raise e
                 time.sleep(backoff)
-                backoff *= 2  # Double the wait time for the next retry
+                backoff *= 2  # Double the wait time for next retry
             else:
                 raise e
 ```
 
-### B. High-DPI PDF Rendering
-By default, rendering PDF pages as images using PyMuPDF (`fitz`) exports them at 72 DPI. At this resolution, small text (such as student names on receipts) is too small and blurry for the OCR engine to detect. 
+### B. Immutable Local SQLite Audit Ledger
+Located in [database.py](file:///d:/pii%20masking/pii-masking-backend-main/src/db/database.py). Every redaction event records job details into SQLite for compliance auditing:
 
-We resolve this in [pdf_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/pdf_utils.py#L14-L25) by applying a zoom matrix to render pages at **300 DPI**:
 ```python
-zoom = 300 / 72
-matrix = fitz.Matrix(zoom, zoom)
-images = [page.get_pixmap(matrix=matrix) for page in doc]
+def add_audit_log(filename: str, file_hash: str, pii_categories: List[str], masking_type: str, processing_time_ms: float = 0, file_size: int = 0, status: str = "SUCCESS"):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO audit_logs (timestamp, filename, file_hash, pii_categories, masking_type, status, processing_time_ms, file_size_bytes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (datetime.utcnow().isoformat(), filename, file_hash, json.dumps(pii_categories), masking_type, status, processing_time_ms, file_size))
+    conn.commit()
+    conn.close()
 ```
-This increases the height/width of the page image by **4.16x**, ensuring that text is sharp, clear, and perfectly readable by OCR.
 
-### C. Advanced Heavy Blurring Mechanism
-Standard Gaussian blurs are easily readable if the resolution is high. To make text **mathematically unreadable**, we use a combination of **pixelation/downsampling** and **Gaussian smoothing** in [image_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/image_utils.py#L97-L122):
+### C. Automatic File Shredder (TTL Cleaner Loop)
+Located in [ttl_cleaner.py](file:///d:/pii%20masking/pii-masking-backend-main/src/services/ttl_cleaner.py). Runs periodically as an async background task to enforce zero-retention policies:
+
+```python
+async def run_ttl_cleanup_loop():
+    while True:
+        now = time.time()
+        ttl = settings.FILE_TTL_SECONDS
+        for folder in [UPLOAD_DIR, PROCESSED_DIR]:
+            if os.path.exists(folder):
+                for fname in os.listdir(folder):
+                    fpath = os.path.join(folder, fname)
+                    if os.path.isfile(fpath) and (now - os.path.getmtime(fpath)) > ttl:
+                        os.remove(fpath)
+        await asyncio.sleep(60)
+```
+
+### D. Advanced Heavy Blurring Mechanism
+Standard Gaussian blurs can be un-blurred using deconvolution algorithms. To make text **mathematically un-recoverable**, we combine downsampling/pixelation with Gaussian smoothing in [image_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/image_utils.py#L97-L122):
 
 ```python
 def heavy_blur_roi(roi):
     h, w = roi.shape[:2]
     if h <= 0 or w <= 0:
         return roi
-    # 1. Scale down the region to 10% of its size (physically destroys text details)
-    scale = 0.1
-    small_w = max(4, int(w * scale))
-    small_h = max(4, int(h * scale))
+    # 1. Downsample region to 10% size (physically destroys text pixel details)
+    small_w, small_h = max(4, int(w * 0.1)), max(4, int(h * 0.1))
     small_roi = cv2.resize(roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
     
-    # 2. Resize it back to its original dimensions (creates soft blocky shapes)
+    # 2. Resize back to original size (creates soft blocky shapes)
     pixelated = cv2.resize(small_roi, (w, h), interpolation=cv2.INTER_LINEAR)
     
-    # 3. Apply a light Gaussian Blur to smooth out interpolation artifacts
+    # 3. Apply Gaussian Blur to smooth block edges
     k_w = max(5, (int(w * 0.1) | 1))
     k_h = max(5, (int(h * 0.1) | 1))
     return cv2.GaussianBlur(pixelated, (k_w, k_h), 0)
-```
-
-### D. Dynamic Border Padding
-OCR word coordinates can sometimes crop text tightly, leaving edge details (like the tails of "y" or "g") visible outside the blur boundaries. We compute a **10% + 2px padding** around the matched coordinate boxes to cover text borders fully:
-```python
-padding_x = int((x_max - x_min) * 0.1) + 2
-padding_y = int((y_max - y_min) * 0.1) + 2
-x_min_pad = max(0, x_min - padding_x)
-y_min_pad = max(0, y_min - padding_y)
-x_max_pad = min(image.shape[1], x_max + padding_x)
-y_max_pad = min(image.shape[0], y_max + padding_y)
-```
-
-### E. Backend PII Category Filtering
-To avoid redacting unintended fields (e.g. Challan Numbers when only "Name" is selected), we use a normalization and partial-match filtering function to clean up the user-selected list:
-```python
-def filter_pii_by_categories(detected_pii: list, pii_category_str: str) -> list:
-    # Converts category string e.g. "name, contact_number" into a normalized list
-    # Matches with Gemini's returned 'type' field while skipping ID fields if name-only is chosen
-    ...
 ```
 
 ---
@@ -170,25 +189,29 @@ def filter_pii_by_categories(detected_pii: list, pii_category_str: str) -> list:
 ## 5. File-by-File Walkthrough
 
 ### 1. [main.py](file:///d:/pii%20masking/pii-masking-backend-main/src/main.py)
-The entry point of the FastAPI application. Sets up CORS, configures endpoints (`/upload/`, `/healthcheck`), parses file extensions, calls the respective utility modules, and translates processed files into Base64 format for safe client delivery.
+Backend application entry point. Initializes SQLite DB tables (`init_db()`), starts the async background TTL cleaner task, mounts middleware & `/api/v1` router, and provides backward-compatible `/upload/` and `/healthcheck` endpoints.
 
-### 2. [gemini_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/gemini_utils.py)
-Contains core wrappers for calling the Google GenAI SDK with exponential retry backoff, and provides `filter_pii_by_categories` for cleaning detected PII lists before blurring.
+### 2. [src/api/v1/router.py](file:///d:/pii%20masking/pii-masking-backend-main/src/api/v1/router.py)
+Enterprise REST API router providing endpoints for `/analytics/stats`, `/audit/logs`, `/audit/export`, `/batch`, `/preview`, and `/keys`.
 
-### 3. [image_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/image_utils.py)
-The visual processor. Combines EasyOCR for word detection, YOLOv8 for face detection, Levenshtein distance for fuzzy matching, and OpenCV for pixelated heavy-blur rendering.
+### 3. [src/core/config.py](file:///d:/pii%20masking/pii-masking-backend-main/src/core/config.py) & [security.py](file:///d:/pii%20masking/pii-masking-backend-main/src/core/security.py)
+Manages enterprise settings (`ENABLE_AUTH`, `FILE_TTL_SECONDS`), SHA-256 hashing, AES-256 Fernet stream encryption, and API key verification.
 
-### 4. [pdf_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/pdf_utils.py)
-Processes PDF files. It uses PyMuPDF (`fitz`) to split PDFs into high-resolution 300 DPI page images, forwards each page to `process_image`, and recompiles them back into a single output PDF.
+### 4. [src/db/database.py](file:///d:/pii%20masking/pii-masking-backend-main/src/db/database.py)
+SQLite database manager maintaining `audit_logs`, `api_keys`, and `job_queue` tables.
 
-### 5. [docx_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/docx_utils.py)
-Uses the `docx` library to parse Word document structures. Replaces the inner text of matched paragraphs with the selected mask replacements.
+### 5. [src/services/fallback_engine.py](file:///d:/pii%20masking/pii-masking-backend-main/src/services/fallback_engine.py)
+Local air-gapped regex scanner for offline PII detection when cloud LLM APIs are unreachable.
 
-### 6. [csv_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/csv_utils.py)
-Uses `pandas` to read spreadsheet cells (CSV/Excel), queries Gemini to understand column-level relationships, and sanitizes matched columns cell-by-cell.
+### 6. [src/services/compliance_reporter.py](file:///d:/pii%20masking/pii-masking-backend-main/src/services/compliance_reporter.py)
+Generates downloadable HTML/PDF compliance verification certificates for GDPR/HIPAA audits.
 
-### 7. [audio_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/audio_utils.py)
-Transcribes files with Gemini, gets precise word timestamps, and uses `pydub` to mute or overlay a sine-wave beep on matching portions of the timeline.
+---
 
-### 8. [video_utils.py](file:///d:/pii%20masking/pii-masking-backend-main/src/utils/video_utils.py)
-Extracts video frames using `cv2.VideoCapture`, runs OCR and YOLO face-masking on each frame in a multi-threaded pool for optimization, and compiles them back with `ffmpeg`.
+## 6. Frontend Pages Guide (`pii-masking-frontend-master`)
+
+1. **[Interactive Workbench (`/`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/main/Page.tsx)**: Main single-file processing dashboard with live upload, category multi-select, and redaction controls.
+2. **[Batch Processing (`/batch`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/batch/BatchProcessingPage.tsx)**: Multi-file queue for parallel document sanitization.
+3. **[HITL Review Workbench (`/preview`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/preview/HITLPreviewWorkbench.tsx)**: Pre-redaction inspection view for compliance officers.
+4. **[Audit Ledger (`/audit`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/audit/AuditLogsPage.tsx)**: Searchable verification log table with compliance certificate exporter.
+5. **[Analytics & Compliance (`/analytics`)](file:///d:/pii%20masking/pii-masking-frontend-master/src/pages/analytics/AnalyticsDashboard.tsx)**: Real-time charts, metrics, latency stats, and engine health diagnostics.
