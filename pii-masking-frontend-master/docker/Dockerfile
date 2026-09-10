@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Serve using NGINX Alpine
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 # Copy custom NGINX configuration
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
