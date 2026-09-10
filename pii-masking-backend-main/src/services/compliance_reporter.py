@@ -45,7 +45,7 @@ def generate_html_compliance_report(audit_logs: list[dict[str, Any]]) -> str:
                 <h1>PII Masking Verification Certificate</h1>
                 <p style="color: #64748b; margin: 5px 0 0 0;">Generated on: <b>{now}</b> | Local Node: <b>Enterprise-Primary</b></p>
             </div>
-            
+
             <div style="display: flex; gap: 20px; margin-bottom: 30px;">
                 <div style="flex: 1; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
                     <div style="font-size: 12px; color: #64748b;">Total Sanitized Records</div>
@@ -74,7 +74,7 @@ def generate_html_compliance_report(audit_logs: list[dict[str, Any]]) -> str:
                     {rows_html}
                 </tbody>
             </table>
-            
+
             <div class="footer">
                 <p>This automated compliance document verifies that all listed files were processed using enterprise redaction policies. Raw file data has been scrubbed of sensitive PII entities prior to persistence.</p>
             </div>

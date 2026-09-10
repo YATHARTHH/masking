@@ -21,7 +21,7 @@ else:
         )
 
 pr_template = ".github/pull_request_template.md"
-if not os.path.isfile(pr_template):
+if not (os.path.isfile(pr_template) or os.path.isfile(".github/PULL_REQUEST_TEMPLATE.md")):
     errors.append(f"COMMIT BLOCKED - {pr_template} is missing.")
 
 for e in errors:

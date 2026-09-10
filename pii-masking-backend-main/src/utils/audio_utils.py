@@ -100,12 +100,12 @@ def apply_audio_masking(input_file, output_file, detected_pii):
 def process_audio(audio_path, pii_category, highlight_mode):
     """
     Main function to process audio file for PII detection and masking.
-    
+
     Args:
         audio_path: Path to the input audio file
         pii_category: PII categories to detect (comma-separated string or list)
         highlight_mode: Mode for highlighting/masking PII (e.g., 'beep', 'silence', etc.)
-    
+
     Returns:
         Path to the processed audio file
     """

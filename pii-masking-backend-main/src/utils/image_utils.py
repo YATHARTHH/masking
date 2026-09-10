@@ -2,6 +2,7 @@ import json
 import os
 
 import cv2
+
 try:
     import easyocr
     reader = easyocr.Reader(["en", "hi"])

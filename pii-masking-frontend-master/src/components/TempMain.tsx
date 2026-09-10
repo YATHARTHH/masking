@@ -164,7 +164,7 @@ const TempMain = () => {
             });
 
             setUploadState(2); // Proceed to output screen
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
             alert("An unexpected error occurred during processing.");
         } finally {

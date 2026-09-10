@@ -29,7 +29,7 @@ def detect_pii_for_video(frame_image, pii_category):
     """Detect PII in a video frame using Gemini API"""
     prompt = """Analyze the provided image frame and identify any Personally Identifiable Information (PII) from the specified categories.
     Extract only the PII that matches the categories provided.
-    
+
     Output Format (JSON only):
     {
         "detected_pii": [
@@ -40,7 +40,7 @@ def detect_pii_for_video(frame_image, pii_category):
             }
         ]
     }
-    
+
     Rules:
     - Be descriptive when identifying PII
     - Support multiple languages
@@ -279,14 +279,14 @@ async def process_video_optimized(video_path: str, pii_category: str,
                                   sample_rate: int = 30):
     """
     Main function to process video with PII masking using async operations
-    
+
     Args:
         video_path: Path to input video
         pii_category: Categories of PII to detect
         highlight_mode: 'blurring' or 'rectangular_box'
         facial: Whether to mask faces
         sample_rate: Extract 1 frame every N frames (higher = faster but less accurate)
-    
+
     Returns:
         Path to processed video
     """

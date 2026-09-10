@@ -21,7 +21,7 @@ def process_csv(csv_path,pii_category,highlight_mode):
     csv_prompt="""
     Analyze the provided CSV data and identify any Personally Identifiable Information (PII) Which i am Mentioning present within the columns. For each column that contains PII data, you need to document the type of PII, the column name, and the description of where the PII is found. If a column contains PII in any row, document the column once and categorize the type of PII it contains, without repeating values for every individual row.
     Strictly only Extract the Info Which comes under the PII Category i have Assigning
-    
+
    Output Format:
 
     The output should be a detailed, structured summary of all detected PII in the CSV data. For each column that contains PII, include the type of PII and the column name. The output must be in JSON format and must follow the structure provided below:

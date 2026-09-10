@@ -6,7 +6,7 @@ const Navbar: React.FC = () => {
   try {
     const loc = useLocation();
     locationPath = loc.pathname;
-  } catch (e) {
+  } catch {
     locationPath = window.location.pathname;
   }
 

@@ -16,9 +16,9 @@ from src.utils.image_utils import process_image
 IS_WINDOWS = platform.system() == 'Windows'
 if IS_WINDOWS:
     try:
-        import comtypes.client
-        import win32com.client
-        from pywintypes import com_error
+        import comtypes.client  # noqa: F401
+        import win32com.client  # noqa: F401
+        from pywintypes import com_error  # noqa: F401
         WINDOWS_COM_AVAILABLE = True
     except ImportError:
         WINDOWS_COM_AVAILABLE = False
@@ -35,10 +35,10 @@ os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 def convert_ppt_to_pptx(ppt_path: str) -> str:
     """
     Convert .ppt file to .pptx format using available methods.
-    
+
     Args:
         ppt_path: Path to the .ppt file
-        
+
     Returns:
         Path to the converted .pptx file
     """
@@ -77,10 +77,10 @@ def convert_ppt_to_pptx(ppt_path: str) -> str:
 def convert_ppt_to_pptx_libreoffice(ppt_path: str) -> str:
     """
     Convert .ppt to .pptx using LibreOffice (cross-platform).
-    
+
     Args:
         ppt_path: Path to the .ppt file
-        
+
     Returns:
         Path to the converted .pptx file
     """
@@ -107,11 +107,11 @@ def convert_ppt_to_pptx_libreoffice(ppt_path: str) -> str:
 def pptx_to_images(pptx_path: str, output_dir: str) -> list[tuple[str, tuple[int, int]]]:
     """
     Convert PowerPoint slides to images using available methods.
-    
+
     Args:
         pptx_path: Path to the PowerPoint file
         output_dir: Directory to save the images
-        
+
     Returns:
         List of tuples containing (image_path, (width, height))
     """
@@ -220,7 +220,7 @@ def pptx_to_images_libreoffice(pptx_path: str, output_dir: str, width_px: int, h
 def images_to_pptx(image_paths: list[str], output_path: str, slide_dimensions: tuple[int, int]):
     """
     Create a PowerPoint presentation from images.
-    
+
     Args:
         image_paths: List of paths to masked images
         output_path: Path where the output PowerPoint file will be saved
@@ -263,12 +263,12 @@ def images_to_pptx(image_paths: list[str], output_path: str, slide_dimensions: t
 async def process_ppt(ppt_path: str, pii_category: str, highlight_mode: str) -> str:
     """
     Process PowerPoint file by converting to images, masking PII, and converting back.
-    
+
     Args:
         ppt_path: Path to the PowerPoint file (.ppt or .pptx)
         pii_category: Categories of PII to detect
         highlight_mode: Mode of masking ('blurring' or 'rectangular_box')
-        
+
     Returns:
         Path to the processed PowerPoint file
     """

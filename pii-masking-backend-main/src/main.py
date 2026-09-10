@@ -129,7 +129,6 @@ async def upload_file(
             file_data = f.read()
             file_base64 = base64.b64encode(file_data).decode('utf-8')
 
-        download_url = f"/download/{processed_filename}"
 
         response_data = {
             "success": True,
