@@ -31,7 +31,7 @@ jobs:
       # Step 2: Secret & Repo Hygiene Scan
       # ----------------------------------------------------
       - name: Gitleaks Secret Detection
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
