@@ -9,7 +9,7 @@ coverage-badge>=1.1.1
 
 # Static Type Checking & Code Quality
 mypy>=1.14.1
-mypy-extensions>=1.0.0
+mypy-extensions>=1.1.0
 black>=24.10.0
 isort[colors]>=5.13.2
 ruff>=0.6.9
