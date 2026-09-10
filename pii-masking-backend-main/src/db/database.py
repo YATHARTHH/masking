@@ -1,8 +1,8 @@
-import sqlite3
-import os
 import json
-from typing import List, Dict, Any, Optional
+import sqlite3
 from datetime import datetime
+from typing import Any
+
 from src.core.config import settings
 
 DB_FILE = settings.DATABASE_URL.replace("sqlite:///", "")
@@ -16,7 +16,7 @@ def init_db():
     """Initialize database tables for Enterprise features."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Audit Logs Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -31,7 +31,7 @@ def init_db():
         file_size_bytes INTEGER DEFAULT 0
     )
     """)
-    
+
     # API Keys Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS api_keys (
@@ -43,7 +43,7 @@ def init_db():
         is_active INTEGER DEFAULT 1
     )
     """)
-    
+
     # Async Jobs Queue Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS job_queue (
@@ -58,7 +58,7 @@ def init_db():
         created_at TEXT NOT NULL
     )
     """)
-    
+
     # Insert default admin API Key if empty
     cursor.execute("SELECT COUNT(*) FROM api_keys")
     if cursor.fetchone()[0] == 0:
@@ -70,12 +70,12 @@ def init_db():
             "INSERT INTO api_keys (key_hash, name, role, created_at) VALUES (?, ?, ?, ?)",
             (default_hash, "Default Enterprise Admin", "admin", datetime.utcnow().isoformat())
         )
-    
+
     conn.commit()
     conn.close()
 
 # Database Helper Functions
-def add_audit_log(filename: str, file_hash: str, pii_categories: List[str], masking_type: str, processing_time_ms: float = 0, file_size: int = 0, status: str = "SUCCESS"):
+def add_audit_log(filename: str, file_hash: str, pii_categories: list[str], masking_type: str, processing_time_ms: float = 0, file_size: int = 0, status: str = "SUCCESS"):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -94,13 +94,13 @@ def add_audit_log(filename: str, file_hash: str, pii_categories: List[str], mask
     conn.commit()
     conn.close()
 
-def get_audit_logs(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+def get_audit_logs(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM audit_logs ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset))
     rows = cursor.fetchall()
     conn.close()
-    
+
     results = []
     for r in rows:
         item = dict(r)
@@ -111,16 +111,16 @@ def get_audit_logs(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         results.append(item)
     return results
 
-def get_analytics_summary() -> Dict[str, Any]:
+def get_analytics_summary() -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     cursor.execute("SELECT COUNT(*), SUM(file_size_bytes), AVG(processing_time_ms) FROM audit_logs WHERE status = 'SUCCESS'")
     total_count, total_bytes, avg_latency = cursor.fetchone()
-    
+
     cursor.execute("SELECT pii_categories FROM audit_logs")
     rows = cursor.fetchall()
-    
+
     category_counts = {}
     for r in rows:
         try:
@@ -129,9 +129,9 @@ def get_analytics_summary() -> Dict[str, Any]:
                 category_counts[c] = category_counts.get(c, 0) + 1
         except Exception:
             pass
-            
+
     conn.close()
-    
+
     return {
         "total_files_processed": total_count or 0,
         "total_bytes_processed": total_bytes or 0,
@@ -140,7 +140,7 @@ def get_analytics_summary() -> Dict[str, Any]:
         "engine_health": "100% Operational"
     }
 
-def create_job(job_id: str, filename: str, pii_categories: str, masking_mode: str) -> Dict[str, Any]:
+def create_job(job_id: str, filename: str, pii_categories: str, masking_mode: str) -> dict[str, Any]:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -151,7 +151,7 @@ def create_job(job_id: str, filename: str, pii_categories: str, masking_mode: st
     conn.close()
     return {"job_id": job_id, "status": "pending"}
 
-def update_job(job_id: str, status: str, progress: int = 0, result_filename: Optional[str] = None, error: Optional[str] = None):
+def update_job(job_id: str, status: str, progress: int = 0, result_filename: str | None = None, error: str | None = None):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -160,7 +160,7 @@ def update_job(job_id: str, status: str, progress: int = 0, result_filename: Opt
     conn.commit()
     conn.close()
 
-def get_job(job_id: str) -> Optional[Dict[str, Any]]:
+def get_job(job_id: str) -> dict[str, Any] | None:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM job_queue WHERE id = ?", (job_id,))

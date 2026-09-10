@@ -116,57 +116,60 @@ const TempMain = () => {
     };
 
     const handleProcessClick = async () => {
-
-        const formData = new FormData();
-
-        setLoading(true);
-
         if (!file) return;
         if (selectedCategory.length === 0) {
             alert("Please select at least one PII category.");
             return;
         }
 
-        formData.append("file", file); // binary file
-        formData.append("highlight_mode", maskingType);
-        formData.append("pii_category", selectedCategory.join(", "));
-        const response = await fetch(`${API_BASE_URL}/upload/`, {
-            method: "POST",
-            body: formData,
-        });
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file); // binary file
+            formData.append("highlight_mode", maskingType);
+            formData.append("pii_category", selectedCategory.join(", "));
+            
+            const response = await fetch(`${API_BASE_URL}/upload/`, {
+                method: "POST",
+                body: formData,
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            console.error(error);
-            alert(error.error || "Upload failed");
+            if (!response.ok) {
+                const error = await response.json();
+                console.error(error);
+                alert(error.error || "Upload failed");
+                return;
+            }
+
+            const json = await response.json();
+
+            // Base64 → Blob
+            const base64Data = json.download.file_data;
+            const filename = json.download.filename;
+
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: "application/octet-stream" });
+
+            // Save final file
+            setProcessedFile({
+                blob,
+                filename
+            });
+
+            setUploadState(2); // Proceed to output screen
+        } catch (err: any) {
+            console.error(err);
+            alert("An unexpected error occurred during processing.");
+        } finally {
             setLoading(false);
-            return;
         }
-
-        const json = await response.json();
-
-        // Base64 → Blob
-        const base64Data = json.download.file_data;
-        const filename = json.download.filename;
-
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "application/octet-stream" });
-
-        // Save final file
-        setProcessedFile({
-            blob,
-            filename
-        });
-
-        setLoading(false);
-        setUploadState(2); // Proceed to output screen
     };
 
     const downloadProcessedFile = () => {

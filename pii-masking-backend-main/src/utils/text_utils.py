@@ -1,13 +1,7 @@
-import os
 import json
-import cv2
-import numpy as np
-from PIL import Image
-import fitz
-import easyocr
-import textdistance
+import os
+
 from google import genai
-from google.genai import types
 
 UPLOAD_FOLDER = "uploads"
 PROCESSED_FOLDER = "processed"

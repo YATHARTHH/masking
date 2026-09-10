@@ -1,12 +1,12 @@
-import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any
 
-def generate_html_compliance_report(audit_logs: List[Dict[str, Any]]) -> str:
+
+def generate_html_compliance_report(audit_logs: list[dict[str, Any]]) -> str:
     """Generate a clean HTML compliance audit report for download/export."""
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     total_files = len(audit_logs)
-    
+
     rows_html = ""
     for log in audit_logs:
         cats = ", ".join(log.get("pii_categories", [])) if isinstance(log.get("pii_categories"), list) else str(log.get("pii_categories"))
@@ -21,7 +21,7 @@ def generate_html_compliance_report(audit_logs: List[Dict[str, Any]]) -> str:
             <td style="padding: 10px; border-bottom: 1px solid #ddd;"><span style="color: #16a34a; font-weight: bold;">{log.get('status')}</span></td>
         </tr>
         """
-        
+
     return f"""
     <!DOCTYPE html>
     <html>

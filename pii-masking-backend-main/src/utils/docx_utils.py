@@ -1,15 +1,8 @@
-import os
 import json
-import cv2
-import numpy as np
-from PIL import Image
-import fitz
-import easyocr
-import textdistance
-from docx import Document
+import os
 
+from docx import Document
 from google import genai
-from google.genai import types
 
 UPLOAD_FOLDER = "uploads"
 PROCESSED_FOLDER = "processed"
@@ -86,7 +79,7 @@ def process_docx(docx_path,pii_category,highlight_mode):
                         else:
                             para.text = para.text.replace(pii[0], len(pii)*"X")
             document_output_path = os.path.join(PROCESSED_FOLDER, os.path.basename(docx_path))
-            doc.save(document_output_path)   
-            return document_output_path  
+            doc.save(document_output_path)
+            return document_output_path
         except Exception as e:
             print(e)

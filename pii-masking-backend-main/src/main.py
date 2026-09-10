@@ -1,10 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
+import asyncio
+import base64
+import os
+import time
+
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-import os
-import base64
-import time
-import asyncio
 
 # Load environment variables from .env file
 try:
@@ -14,22 +15,22 @@ except ImportError:
     pass
 
 # Import Enterprise Modules
+from src.api.v1.router import router as v1_router
 from src.core.config import settings
 from src.core.security import calculate_sha256
-from src.db.database import init_db, add_audit_log
+from src.db.database import add_audit_log, init_db
 from src.middleware.audit_middleware import AuditMiddleware
 from src.services.ttl_cleaner import run_ttl_cleanup_loop
-from src.api.v1.router import router as v1_router
+from src.utils.audio_utils import process_audio
+from src.utils.csv_utils import process_csv
+from src.utils.docx_utils import process_docx
+from src.utils.image_utils import process_image
 
 # Import existing utility functions
 from src.utils.pdf_utils import process_pdf
-from src.utils.image_utils import process_image
-from src.utils.csv_utils import process_csv
-from src.utils.docx_utils import process_docx
-from src.utils.audio_utils import process_audio
+from src.utils.ppt_utils import process_ppt
 from src.utils.text_utils import process_text
 from src.utils.video_utils import process_video_optimized
-from src.utils.ppt_utils import process_ppt
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -95,7 +96,7 @@ async def upload_file(
 
         elif ext in ["docx"]:
             output = process_docx(file_path, pii_category, highlight_mode)
-            
+
         elif ext in ["mp4", "mov"]:
             output = await process_video_optimized(file_path, pii_category, highlight_mode)
 
@@ -107,10 +108,10 @@ async def upload_file(
 
         processed_filename = os.path.basename(output)
         pii_categories_list = [cat.strip() for cat in pii_category.replace('[', '').replace(']', '').replace('"', '').split(',')]
-        
+
         # Calculate execution latency
         elapsed_ms = (time.time() - start_time) * 1000
-        
+
         # Log to Enterprise Audit Ledger
         if settings.ENABLE_AUDIT:
             add_audit_log(
@@ -127,9 +128,9 @@ async def upload_file(
         with open(output, "rb") as f:
             file_data = f.read()
             file_base64 = base64.b64encode(file_data).decode('utf-8')
-    
+
         download_url = f"/download/{processed_filename}"
-        
+
         response_data = {
             "success": True,
             "message": "File processed successfully",
@@ -168,7 +169,7 @@ async def upload_file(
                     "original_filename": file.filename,
                     "file_type": ext
                 }
-            }, 
+            },
             status_code=500
         )
 

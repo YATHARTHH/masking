@@ -1,5 +1,7 @@
 import time
+
 from google.genai import Client
+
 
 def generate_content_with_retry(client: Client, model: str, contents, **kwargs):
     """
@@ -9,7 +11,7 @@ def generate_content_with_retry(client: Client, model: str, contents, **kwargs):
     max_retries = kwargs.pop('max_retries', 5)
     initial_backoff = kwargs.pop('initial_backoff', 2)
     backoff = initial_backoff
-    
+
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
@@ -38,7 +40,7 @@ def filter_pii_by_categories(detected_pii: list, pii_category_str: str) -> list:
     """
     if not pii_category_str:
         return detected_pii
-        
+
     # Normalize categories: convert "name, address" to ["name", "address"]
     normalized_categories = []
     # Strip brackets, quotes, and whitespace
@@ -60,20 +62,20 @@ def filter_pii_by_categories(detected_pii: list, pii_category_str: str) -> list:
             else:
                 # Add specific custom category
                 normalized_categories.append(cat_clean)
-                
+
     filtered_pii = []
     for pii in detected_pii:
         pii_type = pii.get("type", "").lower()
-        
+
         # Special case: If user selected ONLY 'name', do NOT match numbers/accounts/IDs.
         # This prevents other IDs (like Challan Number) from being kept if they have "number" in their type.
         is_name_only = len(normalized_categories) == 1 and "name" in normalized_categories
         if is_name_only and any(x in pii_type for x in ["number", "account", "id", "card", "ssn", "aadhaar", "pan"]):
             continue
-            
+
         # If any selected category matches (partial string match) the PII type, keep it
         if any(cat in pii_type for cat in normalized_categories):
             filtered_pii.append(pii)
-            
+
     return filtered_pii
 

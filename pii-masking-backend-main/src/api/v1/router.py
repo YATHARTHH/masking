@@ -1,25 +1,19 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 import os
-import uuid
-import zipfile
-import base64
 import time
-from typing import List, Optional
 
-from src.db.database import (
-    get_audit_logs, 
-    get_analytics_summary, 
-    add_audit_log, 
-    create_job, 
-    update_job, 
-    get_job,
-    get_db_connection
-)
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import HTMLResponse
+
 from src.core.security import calculate_sha256, generate_api_key
+from src.db.database import (
+    add_audit_log,
+    get_analytics_summary,
+    get_audit_logs,
+    get_db_connection,
+    get_job,
+)
 from src.services.compliance_reporter import generate_html_compliance_report
 from src.services.fallback_engine import detect_pii_offline
-from src.middleware.auth_middleware import verify_api_key
 from src.utils.image_utils import process_image
 from src.utils.text_utils import process_text
 
@@ -54,7 +48,7 @@ async def create_new_api_key(name: str = Form(...), role: str = Form("operator")
     raw_key, key_hash = generate_api_key(name)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO api_keys (key_hash, name, role, created_at) VALUES (?, ?, ?, ?)", 
+    cursor.execute("INSERT INTO api_keys (key_hash, name, role, created_at) VALUES (?, ?, ?, ?)",
                    (key_hash, name, role, time.strftime("%Y-%m-%d %H:%M:%S")))
     conn.commit()
     conn.close()
@@ -68,22 +62,22 @@ async def create_new_api_key(name: str = Form(...), role: str = Form("operator")
 
 @router.post("/batch")
 async def process_batch_files(
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     pii_category: str = Form(...),
     highlight_mode: str = Form(...)
 ):
     """Process multiple files in a single batch and return a summary with processed outputs."""
     results = []
     start_time = time.time()
-    
+
     for file in files:
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         with open(file_path, "wb") as buffer:
             buffer.write(await file.read())
-            
+
         ext = file.filename.split(".")[-1].lower()
         file_hash = calculate_sha256(file_path)
-        
+
         try:
             if ext in ["png", "jpg", "jpeg"]:
                 output = process_image(file_path, pii_category, highlight_mode, facial=False)
@@ -92,10 +86,10 @@ async def process_batch_files(
             else:
                 # Basic fallback text processor if format is text-based or generic
                 output = process_text(file_path, pii_category, highlight_mode)
-                
+
             proc_filename = os.path.basename(output)
             cats_list = [c.strip() for c in pii_category.replace('[', '').replace(']', '').replace('"', '').split(',')]
-            
+
             # Log to SQLite Audit
             add_audit_log(
                 filename=file.filename,
@@ -105,7 +99,7 @@ async def process_batch_files(
                 processing_time_ms=(time.time() - start_time) * 1000,
                 file_size=os.path.getsize(file_path)
             )
-            
+
             results.append({
                 "filename": file.filename,
                 "status": "SUCCESS",
@@ -118,7 +112,7 @@ async def process_batch_files(
                 "status": "FAILED",
                 "error": str(e)
             })
-            
+
     return {
         "success": True,
         "batch_size": len(files),
@@ -134,10 +128,10 @@ async def preview_hitl(
     content = await file.read()
     text_content = content.decode('utf-8', errors='ignore')
     cats = [c.strip() for c in pii_category.replace('[', '').replace(']', '').replace('"', '').split(',')]
-    
+
     # Run offline scanner to get detected item coordinates / matches
     offline_results = detect_pii_offline(text_content, cats)
-    
+
     return {
         "filename": file.filename,
         "file_size": len(content),

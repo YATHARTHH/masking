@@ -1,7 +1,7 @@
+import base64
 import hashlib
 import os
-import base64
-from typing import Optional
+
 
 def calculate_sha256(file_path: str) -> str:
     """Calculate SHA-256 hash of a local file."""

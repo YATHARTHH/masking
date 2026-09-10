@@ -1,41 +1,18 @@
-import os
 import json
-import cv2
-import numpy as np
-from PIL import Image
-import easyocr
-import textdistance
-import fitz  # PyMuPDF
-import easyocr
-import cv2
-from PIL import Image
-import textdistance
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.requests import Request
-from pdf2image import convert_from_path
-from google import genai
-from google.genai import types
-import pandas as pd
-from pydub import AudioSegment
-from pydub.generators import Sine
-import math
-import audioread
-import wave
-from ultralytics import YOLO
-from docx import Document
-from paddleocr import PaddleOCR
-from rapidfuzz import process, fuzz
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from concurrent.futures import ProcessPoolExecutor
-from fuzzywuzzy import fuzz
-from fuzzywuzzy import process
-import time
-from pathlib import Path
+import os
 
+import cv2
+try:
+    import easyocr
+    reader = easyocr.Reader(["en", "hi"])
+except Exception:
+    easyocr = None
+    reader = None
+
+import textdistance
+from google import genai
+from PIL import Image
+from ultralytics import YOLO
 
 UPLOAD_FOLDER = "uploads"
 PROCESSED_FOLDER = "processed"
@@ -44,8 +21,11 @@ os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
-face_model = YOLO("yolov8n.pt") 
-reader = easyocr.Reader(["en",'hi'])  
+try:
+    face_model = YOLO("yolov8n.pt")
+except Exception:
+    face_model = None
+
 def detect_pii(content,pii_category):
     prompt = """Analyze the provided document or image and carefully identify any Personally Identifiable Information (PII) Which i am Mentioning. Your task is to detect, document, and categorize PII elements accurately without making any changes or masking.
         Strictly only Extract the Info Which comes under the PII Category i have Assigning
@@ -106,40 +86,40 @@ def heavy_blur_roi(roi):
     scale = 0.1
     small_w = max(4, int(w * scale))
     small_h = max(4, int(h * scale))
-    
+
     small_roi = cv2.resize(roi, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
     pixelated = cv2.resize(small_roi, (w, h), interpolation=cv2.INTER_LINEAR)
-    
+
     # Smooth the pixelated blocks
     k_w = int(w * 0.1) | 1
     k_h = int(h * 0.1) | 1
     k_w = max(5, k_w if k_w % 2 != 0 else k_w + 1)
     k_h = max(5, k_h if k_h % 2 != 0 else k_h + 1)
-    
+
     blurred = cv2.GaussianBlur(pixelated, (k_w, k_h), 0)
     return blurred
 
 def mask_human(image,highlight_mode):
-    results = face_model(image) 
+    results = face_model(image)
     for result in results:
         for box in result.boxes:
-            cls = int(box.cls[0])  
-            if cls == 0:  
-                x1, y1, x2, y2 = map(int, box.xyxy[0]) 
-                
+            cls = int(box.cls[0])
+            if cls == 0:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+
                 if highlight_mode == 'blurring':
                     roi = image[y1:y2, x1:x2]
                     h, w = roi.shape[:2]
                     if h > 0 and w > 0:
                         image[y1:y2, x1:x2] = heavy_blur_roi(roi)
                 elif highlight_mode == 'rectangular_box':
-                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 255), -1) 
-            
+                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 255), -1)
+
     return image
 
 def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
     print("Facial=",facial)
-    
+
     # Clean and filter pii_texts to avoid empty or very short strings matching everything
     valid_pii_texts = []
     for pii in pii_texts:
@@ -148,9 +128,9 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
             # Ignore empty strings or single characters which cause false positive matches
             if len(cleaned) >= 2:
                 valid_pii_texts.append(cleaned.lower())
-                
+
     image = cv2.imread(image_path)
-    
+
     if not valid_pii_texts:
         print("No valid PII texts to blur.")
         if facial:
@@ -165,7 +145,7 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
     print("Extracted Text from Image:")
     print(results)
     print("\n\n")
-    
+
     distance = textdistance.Levenshtein()
     similarity_threshold=0.5
 
@@ -193,7 +173,7 @@ def blur_pii(image_path, pii_texts ,highlight_mode="blur",facial=False):
                 similarity_score = distance.normalized_similarity(text.lower(), pii)
                 if similarity_score >= similarity_threshold:
                     print(f"Text '{text}' matched with PII '{pii}' with similarity {similarity_score*100:.2f}%")
-                    
+
                     (top_left, top_right, bottom_right, bottom_left) = bbox
                     x_min, y_min = int(top_left[0]), int(top_left[1])
                     x_max, y_max = int(bottom_right[0]), int(bottom_right[1])
@@ -225,5 +205,5 @@ def process_image(image_path,pii_category,highlight_mode,facial):
     print("Filtered PII:", pii_info)
     pii_texts = [entry["original_text"] for entry in pii_info]
 
-    
+
     return blur_pii(image_path, pii_texts,highlight_mode,facial)

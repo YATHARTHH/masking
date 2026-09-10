@@ -1,6 +1,7 @@
+import asyncio
 import os
 import time
-import asyncio
+
 from src.core.config import settings
 
 UPLOAD_DIR = "uploads"
@@ -12,7 +13,7 @@ async def run_ttl_cleanup_loop():
         try:
             now = time.time()
             ttl = settings.FILE_TTL_SECONDS
-            
+
             for folder in [UPLOAD_DIR, PROCESSED_DIR]:
                 if os.path.exists(folder):
                     for fname in os.listdir(folder):
@@ -27,5 +28,5 @@ async def run_ttl_cleanup_loop():
                                     print(f"[TTL Cleaner] Error deleting {fname}: {e}")
         except Exception as err:
             print(f"[TTL Cleaner Error] {err}")
-            
+
         await asyncio.sleep(60)  # Check every 60 seconds

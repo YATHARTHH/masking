@@ -1,11 +1,19 @@
-import os
 import json
+import os
 import re
-from pydub import AudioSegment
-from pydub.generators import Sine
+
 from google import genai
 
+try:
+
+    from pydub import AudioSegment
+    from pydub.generators import Sine
+except Exception:
+    AudioSegment = None
+    Sine = None
+
 UPLOAD_FOLDER = "uploads"
+
 PROCESSED_FOLDER = "processed"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
@@ -41,11 +49,11 @@ def add_beep_to_audio(audio_data, start_time, end_time, beep_duration=500, frequ
     if beep_duration <= 0:
         print(f"Warning: Invalid duration ({beep_duration}ms) for beep from {start_time}s to {end_time}s")
         return audio_data
-    
+
     beep = generate_beep(beep_duration, frequency)
     before = audio_data[:start_ms]
     after = audio_data[end_ms:]
-    
+
     final_audio = before + beep + after
     return final_audio
 
@@ -59,7 +67,7 @@ def apply_audio_masking(input_file, output_file, detected_pii):
     audio_data = load_audio(input_file)
     print(f"Type of detected_pii: {type(detected_pii)}")
     print(f"Content of detected_pii: {detected_pii}")
-    
+
     # Handle case where detected_pii might be a string
     if isinstance(detected_pii, str):
         try:
@@ -67,25 +75,25 @@ def apply_audio_masking(input_file, output_file, detected_pii):
         except json.JSONDecodeError:
             print(f"Error: detected_pii is a string but not valid JSON: {detected_pii}")
             raise ValueError("detected_pii must be a dictionary or valid JSON string")
-    
+
     # Check if detected_pii has the expected structure
     if not isinstance(detected_pii, dict) or "detected_pii" not in detected_pii:
         print(f"Error: Invalid structure for detected_pii: {detected_pii}")
         raise ValueError("detected_pii must be a dictionary with 'detected_pii' key")
-    
+
     pii_list = detected_pii["detected_pii"]
     print(f"Found {len(pii_list)} PII instances to mask")
-    
+
     for idx, pii in enumerate(pii_list):
         print(f"Processing PII {idx + 1}: {pii.get('type', 'Unknown')} - '{pii.get('original_text', 'N/A')}'")
         start_time = convert_time_to_seconds(pii['start_time'])
         end_time = convert_time_to_seconds(pii['end_time'])
-        
+
         audio_data = add_beep_to_audio(audio_data, start_time, end_time)
-    
+
     print(f"Exporting processed audio to: {output_file}")
     audio_data.export(output_file, format="wav")
-    
+
     return output_file
 
 # Main function matching the signature called from main.py
@@ -101,15 +109,15 @@ def process_audio(audio_path, pii_category, highlight_mode):
     Returns:
         Path to the processed audio file
     """
-    print(f"=== Audio Processing Started ===")
+    print("=== Audio Processing Started ===")
     print(f"Audio path: {audio_path}")
     print(f"PII Category: {pii_category}")
     print(f"Highlight Mode: {highlight_mode}")
-    
+
     # Verify file exists
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found at: {audio_path}")
-    
+
     audio_prompt = """
 Task: Analyze the provided audio file to meticulously identify and document any Personally Identifiable Information (PII) which I am mentioning present. For each instance of PII detected, provide the exact time range(s) or timestamp(s) where it occurs in the audio, ensuring an accurate, comprehensive report. Your task is to detect, document, and categorize PII elements exclusively based on the audio content, without any alteration or masking of data.
 
@@ -168,24 +176,24 @@ Rules and Guidelines:
 
 PII Categories to Detect:
 """
-    
+
     try:
-        print(f"Uploading file to Gemini API...")
+        print("Uploading file to Gemini API...")
         myfile = client.files.upload(file=audio_path)
-        
-        print(f"Generating content with Gemini...")
+
+        print("Generating content with Gemini...")
         from src.utils.gemini_utils import generate_content_with_retry
         response = generate_content_with_retry(
             client,
             model='gemini-2.5-flash',
             contents=[audio_prompt + pii_category, myfile]
         )
-        
+
         print("=" * 50)
         print("RAW GEMINI RESPONSE:")
         print(response.text)
         print("=" * 50)
-        
+
         # Parse the JSON response
         try:
             # Try to extract JSON from response
@@ -227,27 +235,27 @@ PII Categories to Detect:
             except (ValueError, json.JSONDecodeError) as e2:
                 print(f"All parsing attempts failed: {e2}")
                 raise ValueError(f"Could not parse JSON from Gemini response. Response was: {response.text[:500]}")
-        
+
         print(f"Parsed PII data: {json.dumps(pii_data, indent=2)}")
-        
+
         # Validate the structure
         if not isinstance(pii_data, dict) or "detected_pii" not in pii_data:
             raise ValueError(f"Invalid PII data structure. Expected dict with 'detected_pii' key, got: {type(pii_data)}")
-        
+
         # Generate output filename
         base_name = os.path.basename(audio_path)
         name_without_ext = os.path.splitext(base_name)[0]
         audio_output_path = os.path.join(PROCESSED_FOLDER, f"{name_without_ext}_processed.wav")
-        
+
         # Apply masking
         print(f"Applying {highlight_mode} masking...")
         apply_audio_masking(audio_path, audio_output_path, pii_data)
-        
-        print(f"=== Audio Processing Completed Successfully ===")
+
+        print("=== Audio Processing Completed Successfully ===")
         print(f"Output file: {audio_output_path}")
-        
+
         return audio_output_path
-        
+
     except Exception as e:
         print(f"ERROR in process_audio: {str(e)}")
         import traceback

@@ -1,5 +1,7 @@
 # PII Shield Enterprise - AI-Powered PII Detection & Masking System
 
+![CI Pipeline](https://github.com/YATHARTHH/masking/actions/workflows/ci.yml/badge.svg)
+
 An enterprise-ready, full-stack monorepo application designed to automatically detect and mask Personally Identifiable Information (PII) across multiple file formats (Images, PDFs, Office Documents, Tabular Data, Audio, and Video).
 
 Featuring a modern **React + TypeScript + Vite** frontend and a high-performance **FastAPI** backend leveraging **Google's Gemini 2.0 Flash**, OCR engines (EasyOCR/PaddleOCR), computer vision (YOLOv8 face detection), and local **SQLite audit logging, AES-256 storage encryption, background TTL file shredding, air-gapped regex fallback, and compliance report generation**.

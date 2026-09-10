@@ -111,7 +111,7 @@ repos:
         args:
           - '--baseline'
           - '.security.baseline'
-        exclude: package-lock\.json|poetry\.lock|\.env\.example
+        exclude: package-lock\.json|requirements\.txt|\.env\.example
 
   # gitleaks: scans staged content for secret patterns.
   - repo: https://github.com/gitleaks/gitleaks
@@ -140,4 +140,4 @@ repos:
         entry: semgrep scan --config p/default --config p/secrets --error --quiet --metrics off
         pass_filenames: true
         types: [text]
-        exclude: '(^|/)(\.security\.baseline|package-lock\.json|poetry\.lock)$'
+        exclude: '(^|/)(\.security\.baseline|package-lock\.json|requirements\.txt)$'

@@ -1,14 +1,8 @@
-import pandas as pd
-import os
 import json
-import cv2
-import numpy as np
-from PIL import Image
-import fitz
-import easyocr
-import textdistance
+import os
+
+import pandas as pd
 from google import genai
-from google.genai import types
 
 UPLOAD_FOLDER = "uploads"
 PROCESSED_FOLDER = "processed"
@@ -19,11 +13,11 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 def process_csv(csv_path,pii_category,highlight_mode):
-    
+
     if csv_path.lower().endswith(".csv"):
         d=pd.read_csv(csv_path)
     else:
-        d=pd.read_excel(csv_path)   
+        d=pd.read_excel(csv_path)
     csv_prompt="""
     Analyze the provided CSV data and identify any Personally Identifiable Information (PII) Which i am Mentioning present within the columns. For each column that contains PII data, you need to document the type of PII, the column name, and the description of where the PII is found. If a column contains PII in any row, document the column once and categorize the type of PII it contains, without repeating values for every individual row.
     Strictly only Extract the Info Which comes under the PII Category i have Assigning

@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict, Any
+from typing import Any
 
 # Enterprise Regex Patterns for Local Air-Gapped PII Detection
 PATTERNS = {
@@ -13,11 +13,11 @@ PATTERNS = {
     "Aadhaar Number": r'\b\d{4}\s?\d{4}\s?\d{4}\b',
 }
 
-def detect_pii_offline(text: str, categories: List[str]) -> Dict[str, Any]:
+def detect_pii_offline(text: str, categories: list[str]) -> dict[str, Any]:
     """Offline PII detection scanner using local regular expressions."""
     detected = {}
     total_found = 0
-    
+
     for cat in categories:
         clean_cat = cat.strip()
         pattern = PATTERNS.get(clean_cat)
@@ -28,14 +28,14 @@ def detect_pii_offline(text: str, categories: List[str]) -> Dict[str, Any]:
                 clean_matches = [m[0] if isinstance(m, tuple) else m for m in matches]
                 detected[clean_cat] = clean_matches
                 total_found += len(clean_matches)
-                
+
     return {
         "engine": "Local Offline Regex Fallback Engine",
         "total_detected": total_found,
         "pii_matches": detected
     }
 
-def mask_text_offline(text: str, categories: List[str], mask_mode: str = "general") -> str:
+def mask_text_offline(text: str, categories: list[str], mask_mode: str = "general") -> str:
     """Mask text using local offline regex rules."""
     result = text
     for cat in categories:
