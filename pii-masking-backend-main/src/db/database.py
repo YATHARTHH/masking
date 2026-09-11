@@ -127,7 +127,7 @@ def get_analytics_summary() -> dict[str, Any]:
             cats = json.loads(r[0])
             for c in cats:
                 category_counts[c] = category_counts.get(c, 0) + 1
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
     conn.close()

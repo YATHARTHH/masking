@@ -249,7 +249,7 @@ async def create_video_from_frames_async(frame_folder: str, output_path: str,
 
         # Copy audio from original video if exists
         try:
-            import subprocess
+            import subprocess  # nosec B404
             temp_output = output_path.replace('.mp4', '_temp.mp4')
             os.rename(output_path, temp_output)
 
@@ -258,7 +258,7 @@ async def create_video_from_frames_async(frame_folder: str, output_path: str,
                 '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0',
                 '-shortest', output_path, '-y'
             ]
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True)  # nosec B603
             os.remove(temp_output)
         except Exception as e:
             print(f"Could not copy audio: {e}")

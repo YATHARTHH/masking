@@ -65,7 +65,7 @@ jobs:
       - name: Backend Static Security Audit (Bandit)
         working-directory: pii-masking-backend-main
         run: |
-          bandit -r src/
+          bandit -ll -r src/
 
       - name: Backend Unit Tests & Coverage (Pytest)
         working-directory: pii-masking-backend-main

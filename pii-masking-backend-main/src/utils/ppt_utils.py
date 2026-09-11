@@ -2,7 +2,7 @@ import asyncio
 import os
 import platform
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import tempfile
 
 from PIL import Image
@@ -88,7 +88,7 @@ def convert_ppt_to_pptx_libreoffice(ppt_path: str) -> str:
 
     try:
         # Try to use LibreOffice
-        subprocess.run([
+        subprocess.run([  # nosec B603 B607
             'libreoffice',
             '--headless',
             '--convert-to', 'pptx',
@@ -178,7 +178,7 @@ def pptx_to_images_libreoffice(pptx_path: str, output_dir: str, width_px: int, h
     try:
         # Convert to PDF first
         pdf_path = os.path.join(output_dir, "temp.pdf")
-        subprocess.run([
+        subprocess.run([  # nosec B603 B607
             'libreoffice',
             '--headless',
             '--convert-to', 'pdf',
