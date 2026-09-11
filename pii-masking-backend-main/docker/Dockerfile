@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install PyTorch CPU-only wheels first to prevent downloading 1.5GB CUDA packages
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
 # Copy requirements and install
 COPY requirements.txt requirements-dev.txt ./
 ARG INSTALL_DEV=false
