@@ -26,5 +26,3 @@ dist-ssr
 # Config
 .env
 .env.local
-
-package-lock.json
